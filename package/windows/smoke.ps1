@@ -139,6 +139,16 @@ else {
         if (Test-Path $profileDir) { Say "profile at $profileDir" }
         else { Fail "no profile directory at $profileDir" }
 
+        # What keeps a restore bubble off the screen here, since closing over the
+        # protocol cannot put the profile back to normal on this platform.
+        $args = @(Browsers | ForEach-Object { $_.CommandLine }) -join " "
+        if ($args -match "--hide-crash-restore-bubble") {
+            Say "started with the restore bubble suppressed"
+        }
+        else {
+            Fail "the restore bubble is not suppressed, so a start after this shows one"
+        }
+
         # A picture of the desktop while the window the application opened is on
         # it, because the readme tells someone a window will open by itself and a
         # sentence about a screen is never as good as the screen.
@@ -230,7 +240,10 @@ else { Fail "$($left.Count) browser processes outlived the server"; KillBrowsers
 
 $exit = ExitType
 if ($exit -eq "Crashed") {
-    Fail "the profile is marked Crashed, so the next window offers to restore"
+    # Not a failure on Windows, and the reason is in Chrome.java: the protocol's
+    # close does not travel the path that writes anything else here. What a person
+    # would have seen because of it is suppressed by a flag, checked above.
+    Say "profile left marked '$exit', as closing over the protocol does on Windows"
 }
 elseif ($exit -eq "no profile") {
     Fail "no profile was written, so no browser ran in this half"

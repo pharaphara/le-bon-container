@@ -156,6 +156,15 @@ public class Chrome implements AutoCloseable {
         cmd.add("--window-size=1440,900");
         cmd.add("--no-first-run");
         cmd.add("--no-default-browser-check");
+        // Measured on Windows: a browser closed over the devtools protocol does not
+        // take the path Chromium writes "normal" on, the way it does when a term
+        // signal ends the session on Unix, so the profile stays marked as having
+        // crashed however politely it was asked to leave. The next window then
+        // opens with a bubble offering to restore, which is a confusing thing to
+        // show someone who simply started the application again. This is the flag
+        // Chromium provides for exactly that, and it beats the alternative of
+        // editing somebody's profile behind their back.
+        cmd.add("--hide-crash-restore-bubble");
         if (props.headless()) {
             cmd.add("--headless=new");
         }

@@ -101,6 +101,15 @@ else
     # A picture of the desktop while the window the application opened is on it,
     # because the readme tells someone a window will open by itself and a sentence
     # about a screen is never as good as the screen.
+    # What keeps a restore bubble off the screen on the platform where closing over
+    # the protocol cannot put the profile back to normal.
+    if ps -o command= -p "$(pgrep -f -- "user-data-dir=$PROFILE" | head -1)" 2>/dev/null |
+        grep -q -- "--hide-crash-restore-bubble"; then
+        say "started with the restore bubble suppressed"
+    else
+        fail "the restore bubble is not suppressed"
+    fi
+
     mkdir -p "$WORK/screens"
     if screencapture -x "$WORK/screens/macos-desktop.png" 2>/dev/null; then
         say "desktop screenshot at $WORK/screens/macos-desktop.png"
