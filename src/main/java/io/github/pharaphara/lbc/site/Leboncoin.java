@@ -102,7 +102,7 @@ public class Leboncoin {
         if (!outcome.ok()) {
             parkedUrl = null;
             throw new LbcException(LbcException.Kind.WALL, outcome.reason(),
-                    Walls.advice(props.vncUrl(), outcome.reason(), outcome.attempt()));
+                    Walls.advice(props.viewer(), outcome.reason(), outcome.attempt()));
         }
         parkedUrl = url;
         return true;
@@ -176,7 +176,7 @@ public class Leboncoin {
         Walls.Outcome outcome = Walls.pass(page, browser::view, null);
         String reason = outcome.reason() != null ? outcome.reason() : fallbackReason;
         return new LbcException(LbcException.Kind.WALL, reason,
-                Walls.advice(props.vncUrl(), reason,
+                Walls.advice(props.viewer(), reason,
                         outcome.attempt() == null ? "tried nothing, on purpose" : outcome.attempt()));
     }
 
@@ -253,7 +253,8 @@ public class Leboncoin {
                 + " so the rendered pages were read instead: about 35 ads per page rather than 100,"
                 + " one page render each, and deliberately slow, at most three pages per call."
                 + " Keep leaning on this and the site will restrict the address for a while."
-                + " Pass the check once at " + props.vncUrl() + " and the fast path opens by itself.";
+                + " Pass the check once (" + Walls.where(props.viewer())
+                + ") and the fast path opens by itself.";
         return new Collected(done, 0, read, fresh, duplicates, outOfCategory, 0,
                 "rendered_pages:" + stop, note, first.totals(), first.search(), renderedFirst);
     }

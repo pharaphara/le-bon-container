@@ -34,7 +34,14 @@ logging:
     io.github.pharaphara.lbc: info
 
 lbc:
-  profile: /profile
-  data: /data
+  # No directory is named here on purpose. The container is told where its two
+  # volumes are, by environment, and anywhere else they follow the convention of
+  # the machine: see Home. An absolute path in this file would be wrong on every
+  # desktop it ever landed on.
   headless: false
-  vnc-url: http://localhost:7900
+  # How the browser is driven. "attach" starts an ordinary desktop browser with a
+  # debugging port and talks to it, which is the only way it does not announce
+  # being automated. "launch" lets the library start it, which is louder.
+  browser: attach
+  # vnc-url is set by the container, which runs its browser on a screen nobody
+  # watches. On a desktop the window is simply there, and the messages say so.

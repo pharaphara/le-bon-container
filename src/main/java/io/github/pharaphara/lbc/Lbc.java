@@ -436,12 +436,15 @@ public class Lbc {
     }
 
     public Result status(boolean askTheBrowser) {
+        // Asked first, because asking starts the browser, and "how is it being
+        // driven" then has an answer about a browser that exists rather than one
+        // that is about to.
+        Map<String, Object> identity = askTheBrowser ? browser.identity() : null;
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("version", "0.1.0");
-        data.put("browser", props.cdpUrl() == null || props.cdpUrl().isBlank()
-                ? "started here, profile " + props.profile() : "attached to " + props.cdpUrl());
+        data.put("browser", browser.driving());
         data.put("headless", props.headless());
-        data.put("viewer", props.vncUrl());
+        data.put("viewer", props.viewer() != null ? props.viewer() : "this machine's desktop");
         data.put("dataDir", props.data().toString());
         data.put("searches", store.searches().size());
         data.put("autonomy", props.autonomy());
@@ -449,8 +452,8 @@ public class Lbc {
         lines.add("lbc 0.1.0 | " + data.get("browser"));
         lines.add("searches on disk: " + data.get("searches") + " | autonomy: "
                 + data.get("autonomy"));
-        if (askTheBrowser) {
-            Map<String, Object> id = browser.identity();
+        if (identity != null) {
+            Map<String, Object> id = identity;
             data.put("identity", id);
             lines.add("the browser says: webdriver " + id.get("webdriver")
                     + " | " + id.get("languages") + " | " + id.get("cores") + " cores");
@@ -462,9 +465,9 @@ public class Lbc {
                         + " for.");
             }
         }
-        lines.add("if a tool reports a wall, open " + props.vncUrl()
-                + " and pass the check by hand once. The profile remembers the session,"
-                + " so signing in is a one time gesture too.");
+        lines.add("if a tool reports a wall, " + io.github.pharaphara.lbc.site.Walls
+                .where(props.viewer()) + " and pass the check by hand once. The profile"
+                + " remembers the session, so signing in is a one time gesture too.");
         return new Result("ok", lines, data);
     }
 

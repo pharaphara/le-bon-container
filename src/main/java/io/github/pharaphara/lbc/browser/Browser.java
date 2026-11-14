@@ -12,6 +12,7 @@ import com.microsoft.playwright.Frame;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import io.github.pharaphara.lbc.LbcException;
+import jakarta.annotation.PreDestroy;
 import io.github.pharaphara.lbc.config.LbcProperties;
 import org.springframework.stereotype.Component;
 
@@ -37,6 +38,7 @@ public class Browser implements AutoCloseable {
     }
 
     private final LbcProperties props;
+    private final Chrome chrome;
     private final ReentrantLock lock = new ReentrantLock();
 
     private Playwright playwright;
@@ -45,8 +47,9 @@ public class Browser implements AutoCloseable {
     private Page page;
     private volatile String webKey;
 
-    public Browser(LbcProperties props) {
+    public Browser(LbcProperties props, Chrome chrome) {
         this.props = props;
+        this.chrome = chrome;
     }
 
     /**
@@ -79,10 +82,15 @@ public class Browser implements AutoCloseable {
     }
 
     private void start() {
+        // Either somebody named a browser to talk to, or one is started here the way
+        // a person would start it. Only when this machine has none at all does the
+        // library launch its own, and that one announces being automated.
+        String cdp = props.attachedByHand() ? props.cdpUrl() : chrome.start();
+        settleTheDriver();
         try {
             playwright = Playwright.create();
-            if (props.cdpUrl() != null && !props.cdpUrl().isBlank()) {
-                attached = playwright.chromium().connectOverCDP(props.cdpUrl());
+            if (cdp != null && !cdp.isBlank()) {
+                attached = playwright.chromium().connectOverCDP(cdp);
                 // The first context is THE profile, with the consents already
                 // accepted and the session signed in by hand. A fresh one would
                 // start from nothing.
@@ -93,9 +101,8 @@ public class Browser implements AutoCloseable {
                         // A container has no sandbox helper, and a small /dev/shm.
                         "--no-sandbox", "--disable-dev-shm-usage"));
                 args.addAll(props.chromeArgs());
-                // Reached only when someone asked for it: the image starts an
-                // ordinary browser and attaches to it instead, because a launched
-                // one announces itself.
+                // The last resort: no browser on this machine to start, or someone
+                // asked for this explicitly with lbc.browser=launch.
                 context = playwright.chromium().launchPersistentContext(props.profile(),
                         new BrowserType.LaunchPersistentContextOptions()
                                 .setHeadless(props.headless())
@@ -108,9 +115,30 @@ public class Browser implements AutoCloseable {
             close();
             throw new LbcException(LbcException.Kind.BROWSER,
                     "cannot start the browser: " + e,
-                    props.cdpUrl() == null
-                            ? "check that the image has its browser and a display"
-                            : "check that " + props.cdpUrl() + " is reachable");
+                    cdp == null
+                            ? "check that this machine has a browser and a display"
+                            : "check that " + cdp + " is reachable");
+        }
+    }
+
+    /**
+     * Give the library's node runtime a home of its own.
+     *
+     * <p>Playwright ships a node runtime inside a jar and unpacks it on first use,
+     * by default into the system temp directory. On Windows that is a directory the
+     * system empties behind your back, so 35 MB came out again on every start. A
+     * directory next to the profile means it happens once.
+     */
+    private static void settleTheDriver() {
+        if (System.getProperty("playwright.driver.tmpdir") != null) {
+            return;
+        }
+        java.nio.file.Path dir = io.github.pharaphara.lbc.config.Home.dir("driver");
+        try {
+            java.nio.file.Files.createDirectories(dir);
+            System.setProperty("playwright.driver.tmpdir", dir.toString());
+        } catch (java.io.IOException ignored) {
+            // The default temp directory is a perfectly good fallback.
         }
     }
 
@@ -159,6 +187,36 @@ public class Browser implements AutoCloseable {
         });
     }
 
+    /**
+     * How this browser is being driven, in the words of what actually happened.
+     *
+     * <p>Worth saying precisely, because it is the whole difference between a
+     * setup that reads the site and one that collects walls, and "started here"
+     * covered two cases that could not be less alike: an ordinary browser we
+     * started and merely talk to, and one the library launched with the flag that
+     * announces it.
+     */
+    public synchronized String driving() {
+        if (props.attachedByHand()) {
+            return "attached to " + props.cdpUrl();
+        }
+        if (attached != null) {
+            java.nio.file.Path exe = chrome.executable();
+            return (exe != null ? "started " + exe.getFileName() + " and talking to it"
+                    : "attached to a browser that was already running")
+                    + " over its debugging port, profile " + props.profile();
+        }
+        if (context != null) {
+            return "launched by the library, which announces automation, profile "
+                    + props.profile();
+        }
+        java.nio.file.Path exe = chrome.available();
+        return exe != null
+                ? "not started yet: " + exe.getFileName() + " will be, profile " + props.profile()
+                : "not started yet, and this machine has no desktop browser to start, so the"
+                        + " library will launch its own, which announces automation";
+    }
+
     /** The key seen on the wire, or null if the page has not called home yet. */
     public String webKey() {
         return webKey;
@@ -196,14 +254,27 @@ public class Browser implements AutoCloseable {
     /**
      * Let go of the browser.
      *
-     * <p>An attached browser is somebody else's: we disconnect and leave its tabs
-     * alone. Closing the last tab of a real profile would quit Chromium, and take
-     * the signed in session down with it.
+     * <p>A browser somebody else started is theirs: we disconnect and leave its tabs
+     * alone, because closing the last tab of a real profile would quit it and take
+     * the signed in session down with it. A browser we started ourselves is ours to
+     * close, and asking it to close itself over the protocol is what keeps the
+     * profile from being marked as crashed, which is the difference between a clean
+     * next start and a bar offering to restore the session.
+     *
+     * <p>Annotated, and not merely AutoCloseable: Spring infers a destroy method
+     * for an {@code @Bean} and not for a scanned component, so without this the
+     * browser outlived the process that started it. In a container nothing noticed,
+     * because stopping the container took everything with it. On a desktop it left
+     * an orphaned window and a profile marked as crashed.
      */
     @Override
+    @PreDestroy
     public synchronized void close() {
         try {
             if (attached != null) {
+                if (chrome.ours()) {
+                    attached.close();
+                }
                 attached = null;
             } else if (context != null) {
                 context.close();
@@ -213,6 +284,7 @@ public class Browser implements AutoCloseable {
         } finally {
             context = null;
             page = null;
+            chrome.close();
             if (playwright != null) {
                 try {
                     playwright.close();

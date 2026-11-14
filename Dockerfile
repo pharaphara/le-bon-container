@@ -20,10 +20,14 @@ RUN mvn -B -q -DskipTests package \
 # ---------------------------------------------------------------- runtime
 FROM eclipse-temurin:21-jre-noble
 
+# LBC_VNC_URL is where a human reaches the browser here, which is a page rather
+# than a window on a desktop. It is unset anywhere else, and the messages that send
+# someone to the browser say "the window on this machine" instead.
 ENV DISPLAY=:99 \
     PLAYWRIGHT_BROWSERS_PATH=/browsers \
     LBC_PROFILE=/profile \
     LBC_DATA=/data \
+    LBC_VNC_URL=http://localhost:7900 \
     JAVA_OPTS="-XX:MaxRAMPercentage=70"
 
 # xvfb, x11vnc, novnc, websockify: a display, and a window onto it, because a

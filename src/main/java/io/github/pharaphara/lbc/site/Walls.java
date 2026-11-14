@@ -210,9 +210,27 @@ public final class Walls {
                     + " session and a slower pace.";
         }
         return "Anti robot check (" + reason + "). The tool " + attempt + ". "
-                + "Open " + vncUrl + ", pass the check by hand in the browser, then run the"
-                + " same tool again. Do not retry in a loop, and do not try to work around it:"
-                + " a real browser with a real session is the only answer here.";
+                + capitalised(where(vncUrl)) + ", pass the check by hand in the browser, then"
+                + " run the same tool again. Do not retry in a loop, and do not try to work"
+                + " around it: a real browser with a real session is the only answer here.";
+    }
+
+    /**
+     * Where to find the browser, which is not always a url.
+     *
+     * <p>In a container it runs on a screen nobody watches, and there is a page to
+     * open to see it. Installed on a desktop, the window is on the desktop, and
+     * telling someone to open an address to find a window they can already see
+     * would be the kind of instruction that makes a person distrust the rest.
+     */
+    public static String where(String vncUrl) {
+        return vncUrl != null && !vncUrl.isBlank()
+                ? "open " + vncUrl
+                : "look at the browser window on this machine";
+    }
+
+    private static String capitalised(String s) {
+        return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     private static long secondsSince(long start) {

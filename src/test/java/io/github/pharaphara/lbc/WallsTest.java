@@ -52,6 +52,18 @@ class WallsTest {
     }
 
     @Test
+    void withNoViewerPageTheAdviceStillMakesSense() {
+        String reason = Walls.detect(
+                page("Just a moment", "https://geo.captcha-delivery.com/x", "short"), null);
+        // Installed on a desktop there is no page to open: the window is right there,
+        // and an instruction to open nothing would be worse than none at all.
+        String advice = Walls.advice(null, reason, "waited 20 s");
+        assertFalse(advice.contains("null"), advice);
+        assertTrue(advice.contains("browser window"), advice);
+        assertTrue(advice.contains("pass the check by hand"), advice);
+    }
+
+    @Test
     void aPageOfResultsIsNotAWall() {
         assertNull(Walls.detect(
                 page("Voitures d'occasion", "https://www.leboncoin.fr/recherche",
