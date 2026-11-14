@@ -83,6 +83,31 @@ loads. Measured at build time: 100 MB for the msi, 99 MB for the zip, of which
 120 MB on disk once installed, against 2.2 GB for the Docker image, because the
 browser and the screen are already there.
 
+**Updates follow the same rhythm as the image.** Two channels, both built and
+published by CI:
+
+| | Docker image | Windows |
+|---|---|---|
+| On every change to `main` | `ghcr.io/pharaphara/lbc:latest` | the [`edge`](https://github.com/pharaphara/le-bon-container/releases/tag/edge) prerelease |
+| On every published version | `ghcr.io/pharaphara/lbc:0.1.0` | the numbered release |
+
+The two `edge` addresses never change, and always serve the newest build:
+
+```
+…/releases/download/edge/le-bon-container-edge-windows-x64.msi
+…/releases/download/edge/le-bon-container-edge-windows-x64-portable.zip
+```
+
+Every `edge` build carries a higher version than the one before, on purpose:
+Windows decides between installing and doing nothing by comparing versions, so two
+installers that both call themselves `0.1.0` are one product it already has. With
+a number that climbs, the msi installs over the previous one and nothing has to be
+uninstalled.
+
+**Nothing updates itself on your machine**, though: it is an msi to run again, or a
+folder to replace. The profile and the searches live elsewhere, under
+`%LOCALAPPDATA%`, so reinstalling touches neither your session nor your data.
+
 **Windows will say "unknown publisher"** the first time, because the executable is
 not signed: More info, then Run anyway. A code signing certificate costs a few
 hundred a year, this project has none, and saying so is more honest than

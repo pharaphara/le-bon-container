@@ -92,6 +92,33 @@ inclus dans les deux. Mesuré au moment de la construction : 100 Mo pour le msi,
 transporte. Environ 120 Mo sur le disque après installation, contre 2,2 Go pour
 l'image Docker, parce que le navigateur et l'écran sont déjà là.
 
+**Les mises à jour suivent le même rythme que l'image.** Deux canaux, construits
+et publiés par l'intégration continue :
+
+| | Image Docker | Windows |
+|---|---|---|
+| À chaque changement sur `main` | `ghcr.io/pharaphara/lbc:latest` | la pré-version [`edge`](https://github.com/pharaphara/le-bon-container/releases/tag/edge) |
+| À chaque version publiée | `ghcr.io/pharaphara/lbc:0.1.0` | la release numérotée |
+
+Les deux adresses de l'`edge` ne changent jamais, et servent toujours la dernière
+construction :
+
+```
+…/releases/download/edge/le-bon-container-edge-windows-x64.msi
+…/releases/download/edge/le-bon-container-edge-windows-x64-portable.zip
+```
+
+Chaque construction `edge` porte un numéro de version plus élevé que la
+précédente, et c'est volontaire : Windows décide d'installer ou de ne rien faire
+en comparant les versions, donc deux installeurs qui s'appellent tous les deux
+`0.1.0` sont pour lui le même produit déjà installé. Avec un numéro qui monte, le
+msi s'installe par-dessus le précédent sans rien désinstaller.
+
+En revanche **rien ne se met à jour tout seul sur votre machine** : c'est un msi à
+relancer, ou un dossier à remplacer. Le profil et les recherches vivent ailleurs,
+sous `%LOCALAPPDATA%`, donc une réinstallation ne touche ni votre session ni vos
+données.
+
 **Windows dira « Éditeur inconnu »** la première fois, parce que l'exécutable n'est
 pas signé : « Informations complémentaires », puis « Exécuter quand même ». Un
 certificat de signature de code coûte quelques centaines d'euros par an, ce projet

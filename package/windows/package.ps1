@@ -33,6 +33,17 @@
 .PARAMETER Type
     both, msi or portable.
 
+.PARAMETER Build
+    Replaces the third number of the version, for a build published outside a
+    release. Windows Installer decides whether to upgrade or to do nothing by
+    comparing versions, so two installers that call themselves 0.1.0 are the same
+    product to it: the second one installs over the first and changes nothing. A
+    build number makes every edge build upgradable over the one before.
+
+.PARAMETER Suffix
+    Added to the file names, e.g. "edge", for a channel whose address has to stay
+    the same from one build to the next.
+
 .EXAMPLE
     mvn -B -DskipTests package
     pwsh package/windows/package.ps1
@@ -41,9 +52,11 @@
 param(
     [string]$Jar,
     [string]$Version,
+    [int]$Build,
     [string]$Out = "target/windows",
     [ValidateSet("both", "msi", "portable")]
-    [string]$Type = "both"
+    [string]$Type = "both",
+    [string]$Suffix
 )
 
 $ErrorActionPreference = "Stop"
@@ -89,6 +102,10 @@ try {
             $Version = "0.0.1"
         }
     }
+    if ($PSBoundParameters.ContainsKey("Build")) {
+        $Version = ($Version -replace "\.\d+$", ".$Build")
+    }
+    $label = if ($Suffix) { $Suffix } else { $Version }
 
     $stage = Join-Path $Out "stage"
     $app = Join-Path $stage "app"
@@ -154,7 +171,7 @@ try {
         $imageDir = Join-Path $Out "image"
         & jpackage --type app-image @common --dest $imageDir
         if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed" }
-        $zipPath = Join-Path $Out "$Name-$Version-windows-x64-portable.zip"
+        $zipPath = Join-Path $Out "$Name-$label-windows-x64-portable.zip"
         Compress-Archive -Path (Join-Path $imageDir $Name) -DestinationPath $zipPath -Force
         Write-Host "portable  $zipPath"
     }
@@ -182,7 +199,7 @@ try {
                 --win-per-user-install --win-upgrade-uuid $UpgradeUuid --win-console
             if ($LASTEXITCODE -ne 0) { throw "jpackage msi failed" }
             Get-ChildItem $Out -Filter "*.msi" -File | ForEach-Object {
-                $target = Join-Path $Out "$Name-$Version-windows-x64.msi"
+                $target = Join-Path $Out "$Name-$label-windows-x64.msi"
                 if ($_.FullName -ne $target) { Move-Item $_.FullName $target -Force }
                 Write-Host "msi       $target"
             }
