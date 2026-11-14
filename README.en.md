@@ -47,8 +47,9 @@ Codex.
 
 Nothing to compile and no JDK to install: the image is built and published by CI.
 
-**On Windows, Docker is not needed.** There is an installer, and a folder you can
-just unzip: see [on Windows, without Docker](#on-windows-without-docker).
+**On Windows and macOS, Docker is not needed.** There is an installer, and a folder
+you can just unzip: see [on Windows or macOS, without
+Docker](#on-windows-or-macos-without-docker).
 
 The first time, run `docker compose up` without `-d`: the container prints a
 short banner with both addresses and the state of the profile. Afterwards
@@ -66,16 +67,27 @@ itself. A fresh profile simply has no clearance yet. Pass the check by hand once
 and the profile remembers it. Whether an account adds anything on top has not been
 measured, so this readme does not claim it does.
 
-## On Windows, without Docker
+## On Windows or macOS, without Docker
 
-Two files on the [releases
-page](https://github.com/pharaphara/le-bon-container/releases):
+On the [releases page](https://github.com/pharaphara/le-bon-container/releases):
 
-- **`le-bon-container-x.y.z-windows-x64.msi`** — installs, adds a Start menu
-  entry, uninstalls like anything else. No administrator needed: it installs for
-  your account.
-- **`le-bon-container-x.y.z-windows-x64-portable.zip`** — unzip it anywhere, run
+**Windows**
+
+- **`…-windows-x64.msi`** — installs, adds a Start menu entry, uninstalls like
+  anything else. No administrator needed: it installs for your account.
+- **`…-windows-x64-portable.zip`** — unzip it anywhere, run
   `le-bon-container.exe`. Nothing is installed.
+
+**macOS**
+
+- **`…-macos-arm64.dmg`** for Apple silicon, **`…-macos-x64.dmg`** for Intel.
+  Open it, drag it into Applications.
+- The matching `.zip` files hold the same `.app`, for putting it somewhere else.
+
+**A browser has to be on the machine**: Chrome, Edge or Chromium. The tool uses the
+one that is installed rather than downloading its own, on purpose — see
+[below](#how-the-browser-is-started-and-why-that-matters-more-than-anything). If it
+finds none, it says so at startup instead of failing later.
 
 **No Java to install**: both carry a runtime cut to the modules this application
 loads. Measured at build time: 100 MB for the msi, 99 MB for the zip, of which
@@ -108,19 +120,27 @@ uninstalled.
 folder to replace. The profile and the searches live elsewhere, under
 `%LOCALAPPDATA%`, so reinstalling touches neither your session nor your data.
 
-**Windows will say "unknown publisher"** the first time, because the executable is
-not signed: More info, then Run anyway. A code signing certificate costs a few
-hundred a year, this project has none, and saying so is more honest than
+**Both systems will be suspicious**, because nothing here is signed by a paid
+developer account:
+
+- Windows says "unknown publisher": More info, then Run anyway.
+- macOS refuses a downloaded app outright: System Settings, Privacy and Security,
+  Open anyway. From a terminal,
+  `xattr -dr com.apple.quarantine /Applications/le-bon-container.app` does the
+  same thing.
+
+A Windows certificate costs a few hundred a year and Apple notarising needs a
+developer account. This project has neither, and saying so is more honest than
 pretending the warning is not there.
 
 What changes against the container, mostly in the desktop's favour:
 
-| | Container | Windows install |
+| | Container | Desktop install |
 |---|---|---|
 | Browser | a downloaded Chromium, brand new profile | your own Chrome or Edge |
 | Seeing the page | <http://localhost:7900>, a viewer | the window is on your desktop |
-| Profile and data | Docker volumes | `%LOCALAPPDATA%\le-bon-container\` |
-| MCP address | `http://localhost:8788/mcp` | the same, bound to `127.0.0.1` only |
+| Profile and data | Docker volumes | `%LOCALAPPDATA%\le-bon-container\` or `~/Library/Application Support/le-bon-container/` |
+| How it is talked to | HTTP on `localhost:8788` | HTTP, or standard input with the client starting everything |
 | To install first | Docker | nothing |
 
 The browser opens by itself at startup, on a **profile of its own**, not the one
@@ -129,23 +149,42 @@ already open, and mixing the two would be unpleasant anyway. The first time, go 
 the site in that window, pass the anti robot check, and sign in if you want to. The
 profile remembers it.
 
-To stop it: close the console window. The browser closes with it, and cleanly, so
-there is no "restore session" bar on the next start.
+To stop it: close the console window on Windows, quit the application on a Mac. The
+browser closes with it, and cleanly, so there is no "restore session" bar on the
+next start.
 
-To build it yourself, on a Windows machine with a JDK 21:
+To build it yourself, with a JDK 21:
 
 ```powershell
 mvn -B -DskipTests package
 pwsh package/windows/package.ps1          # -Type msi or -Type portable
 ```
 
+```bash
+mvn -B -DskipTests package
+./package/macos/package.sh                # --type dmg or --type portable
+```
+
 The msi needs [WiX 3](https://github.com/wixtoolset/wix3/releases); without it the
-script says so and still produces the zip.
+script says so and still produces the zip. Each script builds for the machine it
+runs on: jpackage knows no other way.
 
 ## Connecting a client
 
-The server speaks MCP over HTTP at `http://localhost:8788/mcp`. Here are the four
-common cases.
+Two ways to be talked to, and they do not serve the same thing.
+
+**Over HTTP**, at `http://localhost:8788/mcp`: a server that runs, that several
+clients can share, and whose browser and profile stay warm between conversations.
+That is what the container does, and the only mode that suits a ChatGPT or a
+machine somewhere else.
+
+**Over standard input**, with `--stdio`: the client starts the program itself, so
+there is nothing to launch first and nothing left running afterwards. With the
+Windows or macOS install, this is usually what you want.
+
+### Over HTTP
+
+The server listens at `http://localhost:8788/mcp`. Here are the four common cases.
 
 **Claude Code**
 
@@ -187,7 +226,56 @@ That form goes through a bridge, so it works whatever the version. If yours take
 an http address directly, declaring it that way skips the bridge.
 
 **Any other client that only speaks stdio** connects the same way, through a
-bridge such as `mcp-remote` pointed at the same address.
+bridge such as `mcp-remote` pointed at the same address — or, with the desktop
+install, through no bridge at all: see just below.
+
+### Over standard input
+
+The path to the program, then `--stdio`. Nothing to launch first: the client
+starts the server when it needs it, and stops it with itself.
+
+**Claude desktop app**, on Windows:
+
+```json
+{ "mcpServers": { "lbc": {
+  "command": "C:\\Users\\YOU\\AppData\\Local\\le-bon-container\\le-bon-container.exe",
+  "args": ["--stdio"] } } }
+```
+
+On a Mac:
+
+```json
+{ "mcpServers": { "lbc": {
+  "command": "/Applications/le-bon-container.app/Contents/MacOS/le-bon-container",
+  "args": ["--stdio"] } } }
+```
+
+**Claude Code**:
+
+```bash
+claude mcp add lbc -- /Applications/le-bon-container.app/Contents/MacOS/le-bon-container --stdio
+```
+
+**Codex**, in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.lbc]
+command = "/Applications/le-bon-container.app/Contents/MacOS/le-bon-container"
+args = ["--stdio"]
+```
+
+In this mode standard output belongs to the protocol: a log line landing there
+would not be noise, it would be a parse error at the other end. So the logs go to
+a file, and the banner to standard error, which clients know how to show:
+
+```
+%LOCALAPPDATA%\le-bon-container\lbc.log
+~/Library/Application Support/le-bon-container/lbc.log
+```
+
+The browser opens when the client starts the server, and closes with it. Start two
+clients and the second attaches to the first one's browser rather than opening a
+second.
 
 ## The tools
 
@@ -376,7 +464,11 @@ container, or as environment variables for a Windows install.
 | `LBC_PACE_PAGES_MAX` | `20` | Hard stop on pages per collection. |
 | `LBC_PACE_RENDERED_PAGES_MAX` | `3` | Pages per call on the slow way in. |
 | `LBC_MAX_ADS` | `2000` | Hard stop on ads per search. |
-| `SERVER_PORT` | `8788` | Where MCP listens. |
+| `SERVER_PORT` | `8788` | Where MCP listens, over HTTP. |
+
+And one command line argument, `--stdio`, which replaces the HTTP server with a
+conversation on standard input: see [connecting a
+client](#over-standard-input).
 
 **Bring your own browser.** With `LBC_CDP_URL` pointing at a Chromium that is
 already running with remote debugging on, LBC attaches to it and uses its first

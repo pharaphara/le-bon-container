@@ -1,0 +1,18 @@
+# Talked to over standard input, by a client that starts this program itself.
+#
+# Nothing is listening on a port here, and nothing may be written to standard
+# output but protocol: that stream belongs to the client. So the web server is not
+# started at all, logs go to a file named on the command line, and the console
+# appender is switched off rather than merely quietened.
+spring:
+  main:
+    web-application-type: none
+    banner-mode: off
+  ai:
+    mcp:
+      server:
+        stdio: true
+
+logging:
+  threshold:
+    console: off

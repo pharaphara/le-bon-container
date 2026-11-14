@@ -53,8 +53,9 @@ et Codex.
 Rien à compiler et aucun JDK à installer : l'image est construite et publiée par
 l'intégration continue.
 
-**Sous Windows, Docker n'est pas nécessaire.** Il y a un installeur, et une version
-à décompresser : voir [sur Windows, sans Docker](#sur-windows-sans-docker).
+**Sous Windows et sur Mac, Docker n'est pas nécessaire.** Il y a un installeur, et
+une version à décompresser : voir [sur Windows ou sur Mac, sans
+Docker](#sur-windows-ou-sur-mac-sans-docker).
 
 La première fois, lancez plutôt `docker compose up` sans `-d` : le conteneur
 affiche un message d'accueil avec les deux adresses et l'état du profil. Ensuite,
@@ -75,16 +76,29 @@ validation. Passez le contrôle une fois à la main, et le profil s'en souvient.
 Savoir si un compte apporte quelque chose en plus n'a pas été mesuré, donc ce
 document ne l'affirme pas.
 
-## Sur Windows, sans Docker
+## Sur Windows ou sur Mac, sans Docker
 
-Deux fichiers sur la [page des
-versions](https://github.com/pharaphara/le-bon-container/releases) :
+Sur la [page des versions](https://github.com/pharaphara/le-bon-container/releases) :
 
-- **`le-bon-container-x.y.z-windows-x64.msi`** — installe, pose une entrée dans le
-  menu Démarrer, se désinstalle comme n'importe quoi d'autre. Pas besoin d'être
-  administrateur : l'installation se fait pour votre compte.
-- **`le-bon-container-x.y.z-windows-x64-portable.zip`** — à décompresser où vous
-  voulez, puis lancer `le-bon-container.exe`. Rien n'est installé.
+**Windows**
+
+- **`…-windows-x64.msi`** — installe, pose une entrée dans le menu Démarrer, se
+  désinstalle comme n'importe quoi d'autre. Pas besoin d'être administrateur :
+  l'installation se fait pour votre compte.
+- **`…-windows-x64-portable.zip`** — à décompresser où vous voulez, puis lancer
+  `le-bon-container.exe`. Rien n'est installé.
+
+**macOS**
+
+- **`…-macos-arm64.dmg`** pour les Mac Apple Silicon, **`…-macos-x64.dmg`** pour
+  les Mac Intel. À ouvrir, puis glisser dans Applications.
+- Les `.zip` correspondants contiennent la même `.app`, pour qui préfère la poser
+  ailleurs.
+
+**Il faut un navigateur sur la machine** : Chrome, Edge ou Chromium. L'outil prend
+celui qui est installé plutôt que d'en télécharger un, et c'est volontaire — voir
+[plus bas](#comment-le-navigateur-est-démarré-et-pourquoi-ça-compte-plus-que-tout).
+S'il n'en trouve aucun, il le dit au démarrage au lieu d'échouer plus tard.
 
 **Aucun Java à installer** : un runtime taillé aux modules de l'application est
 inclus dans les deux. Mesuré au moment de la construction : 100 Mo pour le msi,
@@ -119,20 +133,28 @@ relancer, ou un dossier à remplacer. Le profil et les recherches vivent ailleur
 sous `%LOCALAPPDATA%`, donc une réinstallation ne touche ni votre session ni vos
 données.
 
-**Windows dira « Éditeur inconnu »** la première fois, parce que l'exécutable n'est
-pas signé : « Informations complémentaires », puis « Exécuter quand même ». Un
-certificat de signature de code coûte quelques centaines d'euros par an, ce projet
-n'en a pas, et le dire est plus honnête que de faire comme si l'avertissement
-n'existait pas.
+**Les deux systèmes vont se méfier**, parce que rien n'est signé par un compte
+développeur payant :
+
+- Windows affiche « Éditeur inconnu » : « Informations complémentaires », puis
+  « Exécuter quand même ».
+- macOS refuse carrément une application téléchargée : Réglages Système,
+  Confidentialité et sécurité, « Ouvrir quand même ». En ligne de commande,
+  `xattr -dr com.apple.quarantine /Applications/le-bon-container.app` fait la même
+  chose.
+
+Un certificat Windows coûte quelques centaines d'euros par an, et la notarisation
+Apple demande un compte développeur. Ce projet n'a ni l'un ni l'autre, et le dire
+est plus honnête que de faire comme si l'avertissement n'existait pas.
 
 Ce que ça change par rapport au conteneur, et c'est plutôt à l'avantage du poste :
 
-| | Conteneur | Installation Windows |
+| | Conteneur | Installation sur le poste |
 |---|---|---|
 | Navigateur | un Chromium téléchargé, profil neuf | votre Chrome ou Edge déjà installé |
 | Voir la page | <http://localhost:7900>, un visualiseur | la fenêtre est sur votre bureau |
-| Profil et données | des volumes Docker | `%LOCALAPPDATA%\le-bon-container\` |
-| Adresse MCP | `http://localhost:8788/mcp` | la même, liée à `127.0.0.1` seulement |
+| Profil et données | des volumes Docker | `%LOCALAPPDATA%\le-bon-container\` ou `~/Library/Application Support/le-bon-container/` |
+| Branchement | HTTP sur `localhost:8788` | HTTP, ou l'entrée standard et le client lance tout |
 | À installer d'abord | Docker | rien |
 
 Le navigateur s'ouvre tout seul au démarrage, sur un **profil à part**, pas celui
@@ -141,23 +163,43 @@ profil déjà ouvert, et mélanger les deux serait de toute façon désagréable
 première fois, allez sur le site dans cette fenêtre, passez le contrôle anti-robot,
 et connectez-vous si vous le souhaitez. Le profil s'en souvient.
 
-Pour arrêter : fermez la fenêtre de console. Le navigateur se ferme avec elle, et
-proprement, donc pas de bandeau « restaurer la session » au démarrage suivant.
+Pour arrêter : fermez la fenêtre de console sous Windows, quittez l'application sur
+Mac. Le navigateur se ferme avec, et proprement, donc pas de bandeau « restaurer la
+session » au démarrage suivant.
 
-Pour construire soi-même, sur une machine Windows avec un JDK 21 :
+Pour construire soi-même, avec un JDK 21 :
 
 ```powershell
 mvn -B -DskipTests package
 pwsh package/windows/package.ps1          # -Type msi ou -Type portable
 ```
 
+```bash
+mvn -B -DskipTests package
+./package/macos/package.sh                # --type dmg ou --type portable
+```
+
 Le msi demande [WiX 3](https://github.com/wixtoolset/wix3/releases) ; sans lui, le
-script le dit et produit quand même le zip.
+script le dit et produit quand même le zip. Chaque script construit pour la machine
+sur laquelle il tourne : jpackage ne sait pas faire autrement.
 
 ## Brancher un client
 
-Le serveur parle MCP en HTTP sur `http://localhost:8788/mcp`. Voici les quatre
-cas les plus courants.
+Deux façons d'être branché, et elles ne servent pas la même chose.
+
+**En HTTP**, sur `http://localhost:8788/mcp` : un serveur qui tourne, que plusieurs
+clients peuvent partager, et dont le navigateur et le profil restent chauds entre
+deux conversations. C'est ce que fait le conteneur, et c'est le seul mode qui
+convienne à un ChatGPT ou à une machine distante.
+
+**Sur l'entrée standard**, avec `--stdio` : c'est le client qui lance le programme,
+donc il n'y a rien à démarrer d'avance et rien qui traîne derrière. Sur un poste
+avec l'installeur Windows ou Mac, c'est généralement ce qu'on veut.
+
+### En HTTP
+
+Le serveur écoute sur `http://localhost:8788/mcp`. Voici les quatre cas les plus
+courants.
 
 **Claude Code**
 
@@ -201,7 +243,57 @@ Si la vôtre accepte directement une adresse HTTP, la déclarer ainsi évite la
 passerelle.
 
 **N'importe quel autre client qui ne parle que stdio** se branche de la même
-façon, par une passerelle du type `mcp-remote` pointée sur la même adresse.
+façon, par une passerelle du type `mcp-remote` pointée sur la même adresse — ou,
+avec l'installation sur le poste, sans passerelle du tout : voir juste en dessous.
+
+### Sur l'entrée standard
+
+Le chemin du programme, suivi de `--stdio`. Rien à lancer d'avance : le client
+démarre le serveur quand il en a besoin, et l'arrête en même temps que lui.
+
+**Claude, application de bureau**, sous Windows :
+
+```json
+{ "mcpServers": { "lbc": {
+  "command": "C:\\Users\\VOUS\\AppData\\Local\\le-bon-container\\le-bon-container.exe",
+  "args": ["--stdio"] } } }
+```
+
+Sur Mac :
+
+```json
+{ "mcpServers": { "lbc": {
+  "command": "/Applications/le-bon-container.app/Contents/MacOS/le-bon-container",
+  "args": ["--stdio"] } } }
+```
+
+**Claude Code** :
+
+```bash
+claude mcp add lbc -- /Applications/le-bon-container.app/Contents/MacOS/le-bon-container --stdio
+```
+
+**Codex**, dans `~/.codex/config.toml` :
+
+```toml
+[mcp_servers.lbc]
+command = "/Applications/le-bon-container.app/Contents/MacOS/le-bon-container"
+args = ["--stdio"]
+```
+
+Dans ce mode, la sortie standard appartient au protocole : une ligne de journal
+qui atterrirait là ne serait pas du bruit, mais une erreur d'analyse à l'autre
+bout. Les journaux vont donc dans un fichier, et le message d'accueil sur la
+sortie d'erreur, que les clients savent afficher :
+
+```
+%LOCALAPPDATA%\le-bon-container\lbc.log
+~/Library/Application Support/le-bon-container/lbc.log
+```
+
+Le navigateur s'ouvre quand le client démarre le serveur, et se ferme avec lui. Si
+vous lancez deux clients, le second se rattache au navigateur du premier plutôt
+que d'en ouvrir un deuxième.
 
 ## Les outils
 
@@ -399,7 +491,11 @@ installation Windows.
 | `LBC_PACE_PAGES_MAX` | `20` | Butée dure sur le nombre de pages par collecte. |
 | `LBC_PACE_RENDERED_PAGES_MAX` | `3` | Pages par appel sur la voie lente. |
 | `LBC_MAX_ADS` | `2000` | Butée dure sur le nombre d'annonces par recherche. |
-| `SERVER_PORT` | `8788` | Le port d'écoute de MCP. |
+| `SERVER_PORT` | `8788` | Le port d'écoute de MCP, en HTTP. |
+
+Et un seul argument en ligne de commande, `--stdio`, qui remplace le serveur HTTP
+par un dialogue sur l'entrée standard : voir [brancher un
+client](#sur-lentrée-standard).
 
 **Apportez votre navigateur.** Avec `LBC_CDP_URL` pointant sur un Chromium déjà
 lancé avec le pilotage à distance activé, le conteneur s'y rattache et utilise son

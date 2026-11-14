@@ -1,12 +1,14 @@
 package io.github.pharaphara.lbc;
 
 import java.nio.file.Path;
+import java.util.List;
 
 import io.github.pharaphara.lbc.browser.Chrome;
 import io.github.pharaphara.lbc.config.Home;
 import io.github.pharaphara.lbc.config.LbcProperties;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -66,6 +68,33 @@ class DesktopTest {
         // No process, no port, no browser: the only guarantee that a setting named
         // off actually leaves the machine alone.
         assertNull(new Chrome(props).start());
+    }
+
+    @Test
+    void stdioIsOneFlagRatherThanThreeProperties() {
+        String[] out = LbcApplication.arguments(new String[] {"--stdio"});
+        List<String> args = List.of(out);
+        assertFalse(args.contains("--stdio"), "the shorthand is translated, not passed on");
+        assertTrue(args.contains("--spring.profiles.active=stdio"), args.toString());
+        // Over standard input, a log line on standard output is a parse error at
+        // the other end, so a file is named before anything can be written.
+        assertTrue(args.stream().anyMatch(a -> a.startsWith("--logging.file.name=")),
+                args.toString());
+    }
+
+    @Test
+    void aLogFileNamedByHandIsLeftAlone() {
+        String[] out = LbcApplication.arguments(
+                new String[] {"--stdio", "--logging.file.name=/tmp/mine.log"});
+        assertEquals(1, List.of(out).stream()
+                .filter(a -> a.startsWith("--logging.file.name=")).count());
+        assertTrue(List.of(out).contains("--logging.file.name=/tmp/mine.log"));
+    }
+
+    @Test
+    void withoutTheFlagNothingIsAdded() {
+        String[] given = {"--server.port=9000"};
+        assertArrayEquals(given, LbcApplication.arguments(given));
     }
 
     @Test

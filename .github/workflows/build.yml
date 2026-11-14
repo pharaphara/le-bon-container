@@ -57,11 +57,48 @@ jobs:
             target/windows/*.zip
           if-no-files-found: error
 
+  # A Mac has the screen, the browser and the person too, and jpackage cross
+  # compiles no better here than it does for Windows. Apple silicon and Intel are
+  # different machines as far as a bundled runtime is concerned, so both are built.
+  macos:
+    needs: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn -B -DskipTests package
+      - name: dmg and portable zip
+        run: |
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            ./package/macos/package.sh --build "$GITHUB_RUN_NUMBER" --suffix edge
+          else
+            ./package/macos/package.sh
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: le-bon-container-macos-${{ matrix.arch }}
+          path: |
+            target/macos/*.dmg
+            target/macos/*.zip
+          if-no-files-found: error
+
   # The Windows half of what the image gets by being pushed as :latest. The tag is
   # recreated on the commit that produced the files, so edge never points at
   # something older than what it carries.
   edge:
-    needs: windows
+    needs: [windows, macos]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -69,7 +106,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: le-bon-container-windows-x64
+          pattern: le-bon-container-*
+          merge-multiple: true
           path: dist
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -81,19 +119,26 @@ jobs:
             --prerelease \
             --title "edge, the latest main" \
             --notes "Built from main at every change, like \`ghcr.io/pharaphara/lbc:latest\`.
-          The file names do not change, so these two addresses always serve the newest build:
+          The file names do not change, so these addresses always serve the newest build:
 
+          Windows
           - https://github.com/$GITHUB_REPOSITORY/releases/download/edge/le-bon-container-edge-windows-x64.msi
           - https://github.com/$GITHUB_REPOSITORY/releases/download/edge/le-bon-container-edge-windows-x64-portable.zip
 
-          Each build carries a higher version than the one before, so the msi installs over it.
+          macOS, Apple silicon
+          - https://github.com/$GITHUB_REPOSITORY/releases/download/edge/le-bon-container-edge-macos-arm64.dmg
 
-          Not code signed: Windows shows \"unknown publisher\" the first time. More info, then Run anyway.
+          macOS, Intel
+          - https://github.com/$GITHUB_REPOSITORY/releases/download/edge/le-bon-container-edge-macos-x64.dmg
+
+          Each build carries a higher version than the one before, so an installer installs over it.
+
+          Neither is signed by a paid developer account. Windows says \"unknown publisher\": More info, then Run anyway. macOS refuses a downloaded app outright: System Settings, Privacy and Security, Open anyway.
 
           For something that stands still, take a numbered release instead."
 
   release:
-    needs: windows
+    needs: [windows, macos]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -101,12 +146,14 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: le-bon-container-windows-x64
+          pattern: le-bon-container-*
+          merge-multiple: true
           path: dist
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*.msi
+            dist/*.dmg
             dist/*.zip
           # Unsigned, and Windows will say so. Better said here than discovered.
           body: |
