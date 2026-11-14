@@ -90,6 +90,16 @@ else
         fi
     fi
     [ -d "$PROFILE" ] && say "profile at $PROFILE" || fail "no profile directory at $PROFILE"
+
+    # A picture of the desktop while the window the application opened is on it,
+    # because the readme tells someone a window will open by itself and a sentence
+    # about a screen is never as good as the screen.
+    mkdir -p "$WORK/screens"
+    if screencapture -x "$WORK/screens/macos-desktop.png" 2>/dev/null; then
+        say "desktop screenshot at $WORK/screens/macos-desktop.png"
+    else
+        say "no screenshot: screencapture found no session to photograph"
+    fi
 fi
 # A term signal here does run the shutdown hooks, but leaving cleanly is checked
 # on the stdio side, where a client closing its end is the real case.

@@ -129,6 +129,24 @@ else {
         }
         if (Test-Path $profileDir) { Say "profile at $profileDir" }
         else { Fail "no profile directory at $profileDir" }
+
+        # A picture of the desktop while the window the application opened is on
+        # it, because the readme tells someone a window will open by itself and a
+        # sentence about a screen is never as good as the screen.
+        try {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $shot = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+            $g = [System.Drawing.Graphics]::FromImage($shot)
+            $g.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+            New-Item -ItemType Directory -Force -Path "$WorkDir\screens" | Out-Null
+            $shot.Save("$WorkDir\screens\windows-desktop.png")
+            $g.Dispose(); $shot.Dispose()
+            Say "desktop screenshot at $WorkDir\screens\windows-desktop.png"
+        }
+        catch {
+            Say "no screenshot: $($_.Exception.Message)"
+        }
     }
     catch {
         # A failed check is a result, not a reason to leave a browser running.

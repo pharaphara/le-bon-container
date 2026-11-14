@@ -70,6 +70,12 @@ jobs:
           }
           ./package/windows/smoke.ps1 -Exe $exe -WorkDir "$env:GITHUB_WORKSPACE\smoke"
       - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-windows
+          path: smoke/screens
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: smoke-windows-x64
@@ -123,6 +129,12 @@ jobs:
           ./package/macos/smoke.sh \
             /Applications/le-bon-container.app/Contents/MacOS/le-bon-container
       - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-macos-${{ matrix.arch }}
+          path: smoke/screens
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: smoke-macos-${{ matrix.arch }}
@@ -149,6 +161,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: le-bon-container-*
+          merge-multiple: true
+          path: dist
+      # The screenshots travel with the build that took them, which is also the
+      # only way back to a machine that has no runner of its own.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: screens-*
           merge-multiple: true
           path: dist
       - env:
@@ -235,3 +254,27 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # Into the local daemon this time, out of the cache the push just wrote, so
+      # the image can be started rather than only built. It is the half of this
+      # project no desktop exercises: a display nobody watches, a window onto it
+      # over a web page, and a profile on a volume.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: lbc:smoke
+          cache-from: type=gha
+      - name: run it and look at it
+        run: ./package/container/smoke.sh lbc:smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-container
+          path: smoke/screens
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-container
+          path: smoke
+          if-no-files-found: ignore
