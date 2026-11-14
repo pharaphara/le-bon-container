@@ -69,35 +69,45 @@ if (-not $up) {
 }
 else {
     Say "listening on 8788 after about $i s"
-    $headers = @{ Accept = "application/json, text/event-stream" }
-    $init = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}'
-    $r = Invoke-WebRequest -Uri "http://127.0.0.1:8788/mcp" -Method Post -Body $init `
-        -ContentType "application/json" -Headers $headers -UseBasicParsing
-    $session = $r.Headers["Mcp-Session-Id"]
-    if (-not $session) { Fail "no session id in the initialize response" }
-    $headers["Mcp-Session-Id"] = $session
-    Invoke-WebRequest -Uri "http://127.0.0.1:8788/mcp" -Method Post `
-        -Body '{"jsonrpc":"2.0","method":"notifications/initialized"}' `
-        -ContentType "application/json" -Headers $headers -UseBasicParsing | Out-Null
+    try {
+        $headers = @{ Accept = "application/json, text/event-stream" }
+        $init = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}'
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:8788/mcp" -Method Post -Body $init `
+            -ContentType "application/json" -Headers $headers -UseBasicParsing
+        # A response header is a collection here, not a string, and handing the
+        # collection back turns into the literal "System.String[]" on the wire,
+        # which the server rightly answers with "session not found".
+        $session = @($r.Headers["Mcp-Session-Id"])[0]
+        if (-not $session) { Fail "no session id in the initialize response" }
+        $headers["Mcp-Session-Id"] = $session
+        Invoke-WebRequest -Uri "http://127.0.0.1:8788/mcp" -Method Post `
+            -Body '{"jsonrpc":"2.0","method":"notifications/initialized"}' `
+            -ContentType "application/json" -Headers $headers -UseBasicParsing | Out-Null
 
-    # The one question worth asking a real browser.
-    $call = '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"status","arguments":{"browser":true}}}'
-    $status = (Invoke-WebRequest -Uri "http://127.0.0.1:8788/mcp" -Method Post -Body $call `
-            -ContentType "application/json" -Headers $headers -UseBasicParsing -TimeoutSec 180).Content
-    if ($status -match "webdriver false") {
-        Say "the browser says webdriver false"
+        # The one question worth asking a real browser.
+        $call = '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"status","arguments":{"browser":true}}}'
+        $status = (Invoke-WebRequest -Uri "http://127.0.0.1:8788/mcp" -Method Post -Body $call `
+                -ContentType "application/json" -Headers $headers -UseBasicParsing `
+                -TimeoutSec 180).Content
+        if ($status -match "webdriver false") {
+            Say "the browser says webdriver false"
+        }
+        else {
+            Fail "the browser did not say webdriver false: $status"
+        }
+        if ($status -match "talking to it over its debugging port") {
+            Say "attached to a browser it started, rather than one the library launched"
+        }
+        else {
+            Fail "not attached over a debugging port: $status"
+        }
+        if (Test-Path $profileDir) { Say "profile at $profileDir" }
+        else { Fail "no profile directory at $profileDir" }
     }
-    else {
-        Fail "the browser did not say webdriver false: $status"
+    catch {
+        # A failed check is a result, not a reason to leave a browser running.
+        Fail "the http side threw: $($_.Exception.Message)"
     }
-    if ($status -match "talking to it over its debugging port") {
-        Say "attached to a browser it started, rather than one the library launched"
-    }
-    else {
-        Fail "not attached over a debugging port: $status"
-    }
-    if (Test-Path $profileDir) { Say "profile at $profileDir" }
-    else { Fail "no profile directory at $profileDir" }
 }
 # Stop-Process is a terminate, not a request, so nothing is concluded from what
 # the browser does here. The stdio half is where leaving cleanly is checked.

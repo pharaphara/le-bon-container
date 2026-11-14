@@ -100,7 +100,10 @@ LIST='{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
     sleep 10
 ) | "$EXE" --stdio > "$WORK/stdio.out" 2> "$WORK/stdio.err" &
 APP=$!
-( sleep 120; kill -9 "$APP" 2>/dev/null ) & WATCHDOG=$!
+# Disowned, so killing it later does not print a job control notice into the
+# middle of the results.
+{ sleep 120; kill -9 "$APP" 2>/dev/null; } & WATCHDOG=$!
+disown "$WATCHDOG" 2>/dev/null
 wait "$APP"; RC=$?
 kill "$WATCHDOG" 2>/dev/null
 if [ "$RC" -eq 0 ]; then
