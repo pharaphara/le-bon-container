@@ -53,6 +53,9 @@ et Codex.
 Rien à compiler et aucun JDK à installer : l'image est construite et publiée par
 l'intégration continue.
 
+**Sous Windows, Docker n'est pas nécessaire.** Il y a un installeur, et une version
+à décompresser : voir [sur Windows, sans Docker](#sur-windows-sans-docker).
+
 La première fois, lancez plutôt `docker compose up` sans `-d` : le conteneur
 affiche un message d'accueil avec les deux adresses et l'état du profil. Ensuite,
 `docker compose logs lbc` le redonne à tout moment. Docker n'affiche rien de
@@ -71,6 +74,58 @@ il finit par contrôler la page elle-même. Un profil tout neuf n'a simplement a
 validation. Passez le contrôle une fois à la main, et le profil s'en souvient.
 Savoir si un compte apporte quelque chose en plus n'a pas été mesuré, donc ce
 document ne l'affirme pas.
+
+## Sur Windows, sans Docker
+
+Deux fichiers sur la [page des
+versions](https://github.com/pharaphara/le-bon-container/releases) :
+
+- **`le-bon-container-x.y.z-windows-x64.msi`** — installe, pose une entrée dans le
+  menu Démarrer, se désinstalle comme n'importe quoi d'autre. Pas besoin d'être
+  administrateur : l'installation se fait pour votre compte.
+- **`le-bon-container-x.y.z-windows-x64-portable.zip`** — à décompresser où vous
+  voulez, puis lancer `le-bon-container.exe`. Rien n'est installé.
+
+**Aucun Java à installer** : un runtime taillé aux modules de l'application est
+inclus dans les deux. Mesuré au moment de la construction : 100 Mo pour le msi,
+99 Mo pour le zip, dont 50 Mo de runtime Java et 33 Mo pour le Node que Playwright
+transporte. Environ 120 Mo sur le disque après installation, contre 2,2 Go pour
+l'image Docker, parce que le navigateur et l'écran sont déjà là.
+
+**Windows dira « Éditeur inconnu »** la première fois, parce que l'exécutable n'est
+pas signé : « Informations complémentaires », puis « Exécuter quand même ». Un
+certificat de signature de code coûte quelques centaines d'euros par an, ce projet
+n'en a pas, et le dire est plus honnête que de faire comme si l'avertissement
+n'existait pas.
+
+Ce que ça change par rapport au conteneur, et c'est plutôt à l'avantage du poste :
+
+| | Conteneur | Installation Windows |
+|---|---|---|
+| Navigateur | un Chromium téléchargé, profil neuf | votre Chrome ou Edge déjà installé |
+| Voir la page | <http://localhost:7900>, un visualiseur | la fenêtre est sur votre bureau |
+| Profil et données | des volumes Docker | `%LOCALAPPDATA%\le-bon-container\` |
+| Adresse MCP | `http://localhost:8788/mcp` | la même, liée à `127.0.0.1` seulement |
+| À installer d'abord | Docker | rien |
+
+Le navigateur s'ouvre tout seul au démarrage, sur un **profil à part**, pas celui
+de votre navigation quotidienne : Chrome refuse d'ouvrir un port de débogage sur un
+profil déjà ouvert, et mélanger les deux serait de toute façon désagréable. La
+première fois, allez sur le site dans cette fenêtre, passez le contrôle anti-robot,
+et connectez-vous si vous le souhaitez. Le profil s'en souvient.
+
+Pour arrêter : fermez la fenêtre de console. Le navigateur se ferme avec elle, et
+proprement, donc pas de bandeau « restaurer la session » au démarrage suivant.
+
+Pour construire soi-même, sur une machine Windows avec un JDK 21 :
+
+```powershell
+mvn -B -DskipTests package
+pwsh package/windows/package.ps1          # -Type msi ou -Type portable
+```
+
+Le msi demande [WiX 3](https://github.com/wixtoolset/wix3/releases) ; sans lui, le
+script le dit et produit quand même le zip.
 
 ## Brancher un client
 
@@ -222,13 +277,28 @@ page le voit. Démarrer un navigateur de bureau ordinaire avec un port de débog
 ouvert, puis simplement s'y rattacher, ne l'ajoute pas. C'était la seule différence
 structurelle entre les deux installations.
 
-C'est pourquoi l'image démarre Chromium elle-même et s'y rattache, et c'est ce que
-fait `LBC_BROWSER: attach`. Rien n'est falsifié et rien n'est masqué : un drapeau
-n'est simplement pas ajouté. On ne bricole pas `navigator`, on ne passe pas le
-fameux drapeau qui masque l'automatisation, et la différence tient uniquement à la
-façon de lancer le programme.
+C'est pourquoi l'application démarre elle-même un navigateur ordinaire, avec un
+port de débogage ouvert, et s'y rattache. C'est ce que fait `LBC_BROWSER: attach`.
+Rien n'est falsifié et rien n'est masqué : un drapeau n'est simplement pas ajouté.
+On ne bricole pas `navigator`, on ne passe pas le fameux drapeau qui masque
+l'automatisation, et la différence tient uniquement à la façon de lancer le
+programme.
 
-`LBC_BROWSER: launch` rend l'ancien comportement, plus simple et plus bruyant.
+Lequel elle démarre dépend de la machine, et l'ordre n'est pas innocent : votre
+Chrome, votre Edge ou votre Chromium d'abord, le Chromium de Playwright en dernier.
+Un navigateur que quelqu'un a installé et avec lequel il lit le web porte un
+profil, un historique et une réputation ; la copie téléchargée par une
+bibliothèque de test ne porte rien de tout cela, et les sites qui distribuent des
+murs savent faire la différence. Dans le conteneur ce dernier est le seul présent,
+et c'est une raison de plus de préférer l'installation Windows si vous avez le
+choix.
+
+Si un navigateur écoute déjà sur le port 9222, c'est celui-là qui est utilisé, sans
+rien démarrer : le vôtre, avec votre session, vaut toujours mieux que le nôtre.
+
+`LBC_BROWSER: launch` rend l'ancien comportement, où la bibliothèque lance le
+navigateur elle-même : plus simple, et plus bruyant. `LBC_BROWSER: off` ne démarre
+rien du tout.
 
 ## Rien en silence
 
@@ -253,6 +323,20 @@ Mesuré, pas estimé, sur une machine à six cœurs.
 | CPU au repos | 0,5 % |
 | Données | environ 8 Ko par annonce, soit 8 Mo pour mille |
 
+L'installation Windows demande bien moins de disque, parce que tout ce qu'elle ne
+transporte pas est déjà sur la machine : le navigateur et l'écran.
+
+| | Mesure |
+|---|---|
+| Installeur msi | 100 Mo |
+| Zip portable | 99 Mo |
+| Dont runtime Java | 50 Mo, taillé aux modules chargés, contre 286 Mo pour un JDK entier |
+| Sur le disque | environ 120 Mo |
+
+La mémoire n'a pas été mesurée sur Windows, et ce document ne l'inventera pas :
+c'est le même navigateur et la même machine Java, sans le serveur d'affichage ni
+le visualiseur.
+
 En pratique : **1,5 Go de RAM pour le conteneur, 3 Go de disque, deux cœurs**, et
 pas de carte graphique. Si la machine est déjà chargée, `LBC_BROWSER: launch` ne
 garde pas de navigateur allumé entre deux appels, au prix d'un démarrage à chaque
@@ -267,16 +351,19 @@ pour qui se rattache à son propre navigateur : elle enlève 520 Mo d'un coup.
 ## Configuration
 
 Tout a une valeur par défaut qui fonctionne. On ne règle que ce dont on a besoin,
-dans `compose.yaml`.
+dans `compose.yaml` pour le conteneur, en variables d'environnement pour une
+installation Windows.
 
 | Variable | Défaut | Ce que c'est |
 |---|---|---|
-| `LBC_DATA` | `/data` | Un dossier par recherche. À monter pour conserver ses recherches. |
-| `LBC_PROFILE` | `/profile` | Le profil du navigateur, pour qu'une connexion survive à un redémarrage. |
+| `LBC_DATA` | `/data`, sinon `%LOCALAPPDATA%\le-bon-container\data` | Un dossier par recherche. À monter pour conserver ses recherches. |
+| `LBC_PROFILE` | `/profile`, sinon `…\le-bon-container\profile` | Le profil du navigateur, pour qu'une connexion survive à un redémarrage. |
+| `LBC_BROWSER` | `attach` | `attach` démarre un navigateur ordinaire et s'y rattache, `launch` laisse la bibliothèque le lancer, `off` ne démarre rien. |
 | `LBC_HEADLESS` | `false` | Un humain doit pouvoir voir la page pour passer un contrôle. |
 | `LBC_CDP_URL` | vide | Se rattacher à un navigateur déjà lancé au lieu d'en démarrer un. |
+| `LBC_VNC_URL` | l'adresse du visualiseur dans l'image, vide ailleurs | Où envoyer un humain quand un mur demande un clic. Vide, les messages parlent de la fenêtre du bureau. |
 | `LBC_VNC_PASSWORD` | vide | À renseigner avant d'exposer le port 7900 ailleurs que sur la machine locale. |
-| `LBC_VIEWER` | `on` | `off` supprime l'affichage et le visualiseur. |
+| `LBC_VIEWER` | `on` | `off` supprime l'affichage et le visualiseur. Sans objet hors conteneur. |
 | `LBC_PACE_CALL_MIN_MS` | `1500` | Pause la plus courte entre deux appels de données. |
 | `LBC_PACE_CALL_MAX_MS` | `3500` | La plus longue, tirée au hasard entre les deux. |
 | `LBC_PACE_RENDER_MIN_MS` | `6000` | Entre deux rendus de page, qui coûtent bien plus cher au site. |
@@ -349,9 +436,17 @@ mvn spring-boot:run     # le lancer sur sa machine
 docker build -t lbc .   # l'image
 ```
 
+```powershell
+pwsh package/windows/package.ps1   # le msi et le zip, sur Windows, après un mvn package
+```
+
+Lancé à la main, le serveur prend le navigateur de la machine et écrit sous votre
+dossier de données : pas besoin de conteneur pour le développement courant.
+
 Playwright embarque son propre Node pour cinq plateformes, et c'est ainsi qu'il
 garantit la version dont il a besoin. L'image garde celle qu'elle exécute et jette
-les quatre autres, soit 155 Mo.
+les quatre autres, soit 155 Mo ; l'installation Windows fait le même tri et passe
+de 204 Mo à 35 Mo.
 
 ## Feuille de route
 

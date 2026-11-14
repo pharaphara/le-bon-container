@@ -47,6 +47,9 @@ Codex.
 
 Nothing to compile and no JDK to install: the image is built and published by CI.
 
+**On Windows, Docker is not needed.** There is an installer, and a folder you can
+just unzip: see [on Windows, without Docker](#on-windows-without-docker).
+
 The first time, run `docker compose up` without `-d`: the container prints a
 short banner with both addresses and the state of the profile. Afterwards
 `docker compose logs lbc` shows it again at any time. Docker prints nothing from
@@ -62,6 +65,57 @@ container: the site renders its pages happily, but refuses the data calls with a
 itself. A fresh profile simply has no clearance yet. Pass the check by hand once,
 and the profile remembers it. Whether an account adds anything on top has not been
 measured, so this readme does not claim it does.
+
+## On Windows, without Docker
+
+Two files on the [releases
+page](https://github.com/pharaphara/le-bon-container/releases):
+
+- **`le-bon-container-x.y.z-windows-x64.msi`** — installs, adds a Start menu
+  entry, uninstalls like anything else. No administrator needed: it installs for
+  your account.
+- **`le-bon-container-x.y.z-windows-x64-portable.zip`** — unzip it anywhere, run
+  `le-bon-container.exe`. Nothing is installed.
+
+**No Java to install**: both carry a runtime cut to the modules this application
+loads. Measured at build time: 100 MB for the msi, 99 MB for the zip, of which
+50 MB is the Java runtime and 33 MB the Node runtime Playwright carries. Around
+120 MB on disk once installed, against 2.2 GB for the Docker image, because the
+browser and the screen are already there.
+
+**Windows will say "unknown publisher"** the first time, because the executable is
+not signed: More info, then Run anyway. A code signing certificate costs a few
+hundred a year, this project has none, and saying so is more honest than
+pretending the warning is not there.
+
+What changes against the container, mostly in the desktop's favour:
+
+| | Container | Windows install |
+|---|---|---|
+| Browser | a downloaded Chromium, brand new profile | your own Chrome or Edge |
+| Seeing the page | <http://localhost:7900>, a viewer | the window is on your desktop |
+| Profile and data | Docker volumes | `%LOCALAPPDATA%\le-bon-container\` |
+| MCP address | `http://localhost:8788/mcp` | the same, bound to `127.0.0.1` only |
+| To install first | Docker | nothing |
+
+The browser opens by itself at startup, on a **profile of its own**, not the one
+you browse with: Chrome refuses to open a debugging port on a profile that is
+already open, and mixing the two would be unpleasant anyway. The first time, go to
+the site in that window, pass the anti robot check, and sign in if you want to. The
+profile remembers it.
+
+To stop it: close the console window. The browser closes with it, and cleanly, so
+there is no "restore session" bar on the next start.
+
+To build it yourself, on a Windows machine with a JDK 21:
+
+```powershell
+mvn -B -DskipTests package
+pwsh package/windows/package.ps1          # -Type msi or -Type portable
+```
+
+The msi needs [WiX 3](https://github.com/wixtoolset/wix3/releases); without it the
+script says so and still produces the zip.
 
 ## Connecting a client
 
@@ -207,13 +261,24 @@ see it. Starting an ordinary desktop browser with a debugging port open, then
 merely attaching to it, does not. That was the only structural difference between
 the two setups.
 
-So the image starts Chromium itself and attaches to it, which is what
-`LBC_BROWSER: attach` does. Nothing is forged and nothing is hidden: a flag is
-simply not added. No `navigator` is patched, the well known flag that hides
-automation is still not passed, and the whole difference comes down to how the
-program is started.
+So the application starts an ordinary browser itself, with a debugging port open,
+and attaches to it. That is what `LBC_BROWSER: attach` does. Nothing is forged and
+nothing is hidden: a flag is simply not added. No `navigator` is patched, the well
+known flag that hides automation is still not passed, and the whole difference
+comes down to how the program is started.
 
-`LBC_BROWSER: launch` gives the old behaviour back, simpler and louder.
+Which browser it starts depends on the machine, and the order is not innocent:
+your Chrome, Edge or Chromium first, Playwright's Chromium last. A browser somebody
+installed and reads the web with carries a profile, a history and a reputation; the
+copy a test library downloaded carries none of that, and the sites that hand out
+walls can tell. In the container that copy is the only one there is, which is one
+more reason to prefer the Windows install when you have the choice.
+
+If a browser is already listening on port 9222, that one is used and nothing is
+started: yours, with your session, still beats ours.
+
+`LBC_BROWSER: launch` gives the old behaviour back, where the library launches the
+browser itself: simpler, and louder. `LBC_BROWSER: off` starts nothing at all.
 
 ## Nothing silent
 
@@ -238,6 +303,20 @@ Measured, not estimated, on a six core machine.
 | CPU at rest | 0.5% |
 | Data | about 8 kB per ad, so 8 MB per thousand |
 
+The Windows install needs far less disk, because everything it does not carry is
+already on the machine: the browser, and a screen.
+
+| | Measured |
+|---|---|
+| msi installer | 100 MB |
+| Portable zip | 99 MB |
+| Of which the Java runtime | 50 MB, cut to the modules loaded, against 286 MB for a whole JDK |
+| On disk | around 120 MB |
+
+Memory was not measured on Windows, and this document will not invent it: it is
+the same browser and the same Java runtime, without the display server and the
+viewer.
+
 In practice: **1.5 GB of RAM for the container, 3 GB of disk, two cores**, and no
 graphics card. On a machine that is already busy, `LBC_BROWSER: launch` keeps no
 browser running between calls, at the cost of a startup per session and a browser
@@ -251,16 +330,19 @@ own browser: that alone removes 520 MB.
 
 ## Configuration
 
-Everything has a working default. Set what you need in `compose.yaml`.
+Everything has a working default. Set what you need in `compose.yaml` for the
+container, or as environment variables for a Windows install.
 
 | Variable | Default | What it is |
 |---|---|---|
-| `LBC_DATA` | `/data` | One folder per search. Mount it to keep your searches. |
-| `LBC_PROFILE` | `/profile` | The browser profile, so a sign in survives a restart. |
+| `LBC_DATA` | `/data`, else `%LOCALAPPDATA%\le-bon-container\data` | One folder per search. Mount it to keep your searches. |
+| `LBC_PROFILE` | `/profile`, else `…\le-bon-container\profile` | The browser profile, so a sign in survives a restart. |
+| `LBC_BROWSER` | `attach` | `attach` starts an ordinary browser and talks to it, `launch` lets the library start it, `off` starts nothing. |
 | `LBC_HEADLESS` | `false` | A human must be able to see the page to pass a check. |
 | `LBC_CDP_URL` | unset | Attach to a browser already running instead of starting one. |
+| `LBC_VNC_URL` | the viewer's address in the image, unset elsewhere | Where to send a human when a wall needs a click. Unset, the messages point at the window on the desktop. |
 | `LBC_VNC_PASSWORD` | unset | Set this before exposing port 7900 anywhere but localhost. |
-| `LBC_VIEWER` | `on` | `off` skips the display and the viewer entirely. |
+| `LBC_VIEWER` | `on` | `off` skips the display and the viewer entirely. Container only. |
 | `LBC_PACE_CALL_MIN_MS` | `1500` | Shortest pause between two data calls. |
 | `LBC_PACE_CALL_MAX_MS` | `3500` | Longest, picked at random in between. |
 | `LBC_PACE_RENDER_MIN_MS` | `6000` | Between two page renders, which cost the site far more. |
@@ -332,9 +414,17 @@ mvn spring-boot:run     # run it on your machine
 docker build -t lbc .   # the image
 ```
 
+```powershell
+pwsh package/windows/package.ps1   # the msi and the zip, on Windows, after mvn package
+```
+
+Run by hand, the server picks up the machine's own browser and writes under your
+data directory: no container needed for everyday development.
+
 Playwright ships its own Node runtime for five platforms, which is how it
 guarantees the version it needs. The image keeps the one it runs and drops the
-other four, saving 155 MB.
+other four, saving 155 MB; the Windows install does the same sort and goes from
+204 MB to 35 MB.
 
 ## Roadmap
 
