@@ -41,6 +41,9 @@ $failures = @()
 
 function Say($what) { Write-Host "  $what" }
 function Fail($what) { $script:failures += $what; Write-Host "  FAIL $what" }
+# Wrapped at every call site as well as here: a function returning an empty array
+# in PowerShell returns nothing at all, and nothing has no Count, which under
+# StrictMode is an error rather than a zero.
 function Browsers { @(Get-Process chrome, msedge -ErrorAction SilentlyContinue) }
 
 if (-not (Test-Path $Exe)) { throw "not installed: $Exe" }
@@ -160,7 +163,7 @@ else { Fail "initialize or tools/list went unanswered" }
 if ($err -match "le bon container") { Say "banner on standard error, where it belongs" }
 else { Fail "no banner on standard error" }
 
-$left = Browsers
+$left = @(Browsers)
 if ($left.Count -eq 0) { Say "no browser left behind" }
 else { Fail "$($left.Count) browser processes outlived the server"; $left | Stop-Process -Force }
 
