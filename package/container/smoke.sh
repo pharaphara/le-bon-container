@@ -80,14 +80,23 @@ CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:7900/vnc.html)
 [ "$CODE" = "200" ] && say "the viewer page answers $CODE" || fail "the viewer page answered $CODE"
 
 # A picture of it, because the readme asks someone to open this page and a
-# sentence describing a screen is never as good as the screen.
-if command -v npx > /dev/null 2>&1; then
-    npx -y playwright@1.49.1 screenshot --wait-for-timeout=6000 \
+# sentence describing a screen is never as good as the screen. The machine's own
+# Chrome first, since it is already there; Playwright's own only if it is not.
+shoot() {
+    npx -y playwright@1.49.1 screenshot "$@" --wait-for-timeout=8000 \
         --viewport-size=1280,860 \
         "http://127.0.0.1:7900/vnc_lite.html?autoconnect=1&resize=scale&reconnect=1" \
-        "$WORK/screens/container-viewer.png" > /dev/null 2>&1 \
-        && say "viewer screenshot at $WORK/screens/container-viewer.png" \
-        || say "no screenshot: playwright would not run here"
+        "$WORK/screens/container-viewer.png"
+}
+if command -v npx > /dev/null 2>&1; then
+    if shoot --channel chrome >> "$WORK/screenshot.log" 2>&1; then
+        say "viewer screenshot, taken with the machine's Chrome"
+    elif npx -y playwright@1.49.1 install chromium >> "$WORK/screenshot.log" 2>&1 \
+        && shoot >> "$WORK/screenshot.log" 2>&1; then
+        say "viewer screenshot, taken with a downloaded Chromium"
+    else
+        say "no screenshot: $(tail -1 "$WORK/screenshot.log" | cut -c1-120)"
+    fi
 fi
 
 docker logs "$NAME" > "$WORK/container.log" 2>&1
@@ -104,16 +113,24 @@ case "$CODE" in
     *) fail "stopped with exit $CODE" ;;
 esac
 
+# The volume was written by uid 1000 inside the container, which is not whoever is
+# running this, so reading it needs either root or a container of its own. That is
+# the whole point of the check: the profile has to be on the volume and readable
+# as what Chromium left, not as what this script would have liked.
 PREFS="$PROFILE/Default/Preferences"
-if [ -f "$PREFS" ]; then
-    EXIT_TYPE=$(grep -o '"exit_type":"[^"]*"' "$PREFS" | head -1 | cut -d'"' -f4)
+PREFS_TEXT=$(sudo cat "$PREFS" 2>/dev/null \
+    || docker run --rm -v "$PROFILE:/p:ro" --entrypoint cat "$IMAGE" /p/Default/Preferences 2>/dev/null)
+if [ -n "$PREFS_TEXT" ]; then
+    EXIT_TYPE=$(printf '%s' "$PREFS_TEXT" | grep -o '"exit_type":"[^"]*"' | head -1 | cut -d'"' -f4)
     [ "$EXIT_TYPE" = "Crashed" ] \
         && fail "the profile is marked Crashed, so the next start offers to restore" \
-        || say "profile closed as '${EXIT_TYPE:-unset}'"
+        || say "profile closed as '${EXIT_TYPE:-unset}', on the volume"
 else
-    fail "nothing was written to the profile volume"
+    fail "no profile preferences on the volume: $(sudo ls "$PROFILE" 2>/dev/null | head -5 | tr '\n' ' ')"
 fi
-[ -s "$WORK/data" ] || true
+
+# So that whoever collects the logs afterwards can read them too.
+sudo chmod -R a+rX "$WORK" 2>/dev/null || true
 
 echo
 if [ "$FAILURES" -gt 0 ]; then

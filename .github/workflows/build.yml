@@ -276,5 +276,7 @@ jobs:
         if: failure()
         with:
           name: smoke-container
-          path: smoke
+          path: |
+            smoke/*.txt
+            smoke/*.log
           if-no-files-found: ignore
