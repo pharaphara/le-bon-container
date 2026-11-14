@@ -15,9 +15,9 @@ browser, over [MCP](https://modelcontextprotocol.io).
 
 ![build](https://github.com/pharaphara/le-bon-container/actions/workflows/build.yml/badge.svg)
 
-One container, nine tools, and results an assistant can actually work with: market
-markers first, a compact table next, the full detail on disk, and ad numbers that
-never move.
+An application to install on your machine, or a container if you prefer. Nine
+tools, and results an assistant can actually work with: market markers first, a
+compact table next, the full detail on disk, and ad numbers that never move.
 
 ```
 search "vtt electrique", place 12, price max 1500
@@ -35,108 +35,164 @@ market: 45 private, 1 pro, median age 118 d, 6 bumped since first posted
 - more: results(offset=25) for the remaining 21
 ```
 
-## Quick start
+## Installing it
+
+Two ways, and the first one needs nothing but the application itself.
+
+### On your own computer, Windows or Mac
+
+Three steps, no command line.
+
+**1. Download the file that matches your machine.**
+
+| Your machine | The file |
+|---|---|
+| Windows | [the `.msi` installer](https://github.com/pharaphara/le-bon-container/releases/download/edge/le-bon-container-edge-windows-x64.msi) |
+| Mac with an Apple chip, M1 to M4 | [`le-bon-container-macos-arm64.dmg`](https://github.com/pharaphara/le-bon-container/releases/download/edge/le-bon-container-edge-macos-arm64.dmg) |
+| Mac with an Intel processor | [`le-bon-container-macos-x64.dmg`](https://github.com/pharaphara/le-bon-container/releases/download/edge/le-bon-container-edge-macos-x64.dmg) |
+
+If you are not sure which Mac you have: Apple menu, About This Mac. A line saying
+"Chip" means Apple, a line saying "Processor" means Intel.
+
+Nothing else has to be installed first, neither Docker nor Java. Expect about a
+hundred megabytes to download, and as much on disk.
+
+**2. Open it, and get past the warning.**
+
+There will be one, and it is not a sign that something is wrong: this software is
+signed by no paid developer account, and both systems treat that like any program
+they do not recognise.
+
+- **Windows**: double click the `.msi`. If "Windows protected your PC" appears,
+  click More info, then Run anyway. No administrator password is asked for: it
+  installs for your account.
+- **Mac**: open the `.dmg`, drag the application into Applications, then launch
+  it. macOS refuses the first time. Open System Settings, Privacy and Security,
+  scroll to the bottom, and click Open anyway.
+
+**3. Tell your assistant where to find it.**
+
+This tool does not drive itself: it hands nine tools to an assistant that speaks
+[MCP](https://modelcontextprotocol.io), the Claude desktop app for instance. In
+your assistant's MCP servers configuration, add this.
+
+On Windows, replacing `YOU` with your user name:
+
+```json
+{ "mcpServers": { "lbc": {
+  "command": "C:\\Users\\YOU\\AppData\\Local\\le-bon-container\\le-bon-container.exe",
+  "args": ["--stdio"] } } }
+```
+
+On a Mac:
+
+```json
+{ "mcpServers": { "lbc": {
+  "command": "/Applications/le-bon-container.app/Contents/MacOS/le-bon-container",
+  "args": ["--stdio"] } } }
+```
+
+Restart the assistant, and you can ask it, in French: "cherche des VTT électriques
+à moins de 1 500 € autour de Rodez". There is nothing for you to launch: the
+assistant starts the tool when it needs it, and stops it with itself.
+
+**One thing has to be on the machine already**: Google Chrome, Microsoft Edge or
+Chromium. The tool uses the browser you have rather than downloading one of its
+own, and that is not thrift: [it is the difference between reading the site and
+being stopped](#how-the-browser-is-started-and-why-that-matters-more-than-anything).
+
+### The first time, one click that is yours to make
+
+At startup a browser window opens by itself. Go to
+[leboncoin.fr](https://www.leboncoin.fr) in it, and if the site shows an "I am not
+a robot" check, pass it. Sign in to your account if you want to.
+
+This is the one thing no software should do for you, and this project does not work
+around it: nothing here forges a browser fingerprint and nothing buys a captcha
+solution. One click, once, and the profile remembers it, restarts included.
+
+It is not optional, and it is worth knowing why. Measured on a brand new profile:
+the site renders its pages happily, but refuses the data calls with a 403 carrying
+an anti robot marker, and after a few requests it starts challenging the page
+itself. A brand new profile simply has no clearance. Whether an account buys
+anything beyond that was not measured, so this document does not claim it.
+
+### With Docker, on a server, a NAS, a shared machine
 
 ```bash
 docker compose up -d
 ```
 
-Then point your client at it: see [connecting a
-client](#connecting-a-client) just below, for Claude Code, Claude, ChatGPT and
-Codex.
+Then point your client at it: see [connecting a client](#connecting-a-client), for
+Claude Code, Claude, ChatGPT and Codex.
 
 Nothing to compile and no JDK to install: the image is built and published by CI.
 
-**On Windows and macOS, Docker is not needed.** There is an installer, and a folder
-you can just unzip: see [on Windows or macOS, without
-Docker](#on-windows-or-macos-without-docker).
-
-The first time, run `docker compose up` without `-d`: the container prints a
-short banner with both addresses and the state of the profile. Afterwards
+The first time, run `docker compose up` without `-d`: the container prints a short
+banner with both addresses and the state of the profile. Afterwards
 `docker compose logs lbc` shows it again at any time. Docker prints nothing from
 inside a detached container, which is a Docker limit rather than an oversight.
 
-**Once, at the beginning**, open <http://localhost:7900>. You are looking at the
-container's own browser, and this is where a human does the one thing no tool
-should: pass the anti robot check, and sign in if you want to.
+The click above happens through a page here: open <http://localhost:7900>, where
+you are looking at the container's own browser, and pass the check in it.
 
-This is not optional, and it is worth knowing why. Measured on a brand new
-container: the site renders its pages happily, but refuses the data calls with a
-403 carrying an anti robot marker, and after a few requests it challenges the page
-itself. A fresh profile simply has no clearance yet. Pass the check by hand once,
-and the profile remembers it. Whether an account adds anything on top has not been
-measured, so this readme does not claim it does.
+## The desktop install, in detail
 
-## On Windows or macOS, without Docker
+What [installing it](#on-your-own-computer-windows-or-mac) above leaves out,
+because it does not need to be said for it to work.
 
-On the [releases page](https://github.com/pharaphara/le-bon-container/releases):
+**There are unzip-and-run versions too**, for anyone who would rather install
+nothing: `…-windows-x64-portable.zip` holds `le-bon-container.exe`, and the
+`…-macos-*.zip` files hold the same `.app` as the disk images. Nothing is written
+anywhere but your data directory.
 
-**Windows**
+**macOS refuses a version number that starts with zero.** The application shows one
+more than the project does — `1.1.x` for a project in `0.1.x` — and the file name
+carries the real one.
 
-- **`…-windows-x64.msi`** — installs, adds a Start menu entry, uninstalls like
-  anything else. No administrator needed: it installs for your account.
-- **`…-windows-x64-portable.zip`** — unzip it anywhere, run
-  `le-bon-container.exe`. Nothing is installed.
-
-**macOS**
-
-- **`…-macos-arm64.dmg`** for Apple silicon, **`…-macos-x64.dmg`** for Intel.
-  Open it, drag it into Applications.
-- The matching `.zip` files hold the same `.app`, for putting it somewhere else.
-- macOS refuses a version number that starts with zero, so the application shows
-  one more than the project does — `1.1.x` for a project in `0.1.x` — and the file
-  name carries the real one.
-
-**A browser has to be on the machine**: Chrome, Edge or Chromium. The tool uses the
-one that is installed rather than downloading its own, on purpose — see
-[below](#how-the-browser-is-started-and-why-that-matters-more-than-anything). If it
-finds none, it says so at startup instead of failing later.
-
-**No Java to install**: both carry a runtime cut to the modules this application
-loads. Measured at build time: 100 MB for the msi, 99 MB for the zip, of which
-50 MB is the Java runtime and 33 MB the Node runtime Playwright carries. Around
-120 MB on disk once installed, against 2.2 GB for the Docker image, because the
-browser and the screen are already there.
+**No Java to install**: every file carries a runtime cut to the modules this
+application loads. Measured at build time, on the Windows side: 100 MB for the msi,
+99 MB for the zip, of which 50 MB is the Java runtime and 33 MB the Node runtime
+Playwright carries. The macOS images are the same order, 106 MB for Apple silicon
+and 109 MB for Intel. Around 120 MB on disk once installed, against 2.2 GB for the
+Docker image, because the browser and the screen are already there.
 
 **Updates follow the same rhythm as the image.** Two channels, both built and
 published by CI:
 
-| | Docker image | Windows |
+| | Docker image | Windows and Mac |
 |---|---|---|
 | On every change to `main` | `ghcr.io/pharaphara/lbc:latest` | the [`edge`](https://github.com/pharaphara/le-bon-container/releases/tag/edge) prerelease |
 | On every published version | `ghcr.io/pharaphara/lbc:0.1.0` | the numbered release |
 
-The two `edge` addresses never change, and always serve the newest build:
+The `edge` addresses never change, and always serve the newest build. They are the
+ones linked above:
 
 ```
 …/releases/download/edge/le-bon-container-edge-windows-x64.msi
 …/releases/download/edge/le-bon-container-edge-windows-x64-portable.zip
+…/releases/download/edge/le-bon-container-edge-macos-arm64.dmg
+…/releases/download/edge/le-bon-container-edge-macos-x64.dmg
 ```
 
 Every `edge` build carries a higher version than the one before, on purpose:
 Windows decides between installing and doing nothing by comparing versions, so two
-installers that both call themselves `0.1.0` are one product it already has. With
-a number that climbs, the msi installs over the previous one and nothing has to be
-uninstalled.
+installers that both call themselves `0.1.0` are one product it already has. With a
+number that climbs, an installer installs over the previous one and nothing has to
+be uninstalled.
 
-**Nothing updates itself on your machine**, though: it is an msi to run again, or a
-folder to replace. The profile and the searches live elsewhere, under
-`%LOCALAPPDATA%`, so reinstalling touches neither your session nor your data.
+**Nothing updates itself on your machine**, though: it is an installer to run
+again, or a folder to replace. The profile and the searches live elsewhere, so
+reinstalling touches neither your session nor your data.
 
-**Both systems will be suspicious**, because nothing here is signed by a paid
-developer account:
-
-- Windows says "unknown publisher": More info, then Run anyway.
-- macOS refuses a downloaded app outright: System Settings, Privacy and Security,
-  Open anyway. From a terminal,
-  `xattr -dr com.apple.quarantine /Applications/le-bon-container.app` does the
-  same thing.
-
-A Windows certificate costs a few hundred a year and Apple notarising needs a
+**On both systems being suspicious**, whose gestures are given above: a Windows
+signing certificate costs a few hundred a year, and Apple notarising needs a
 developer account. This project has neither, and saying so is more honest than
-pretending the warning is not there.
+pretending the warning is not there. From a terminal on a Mac,
+`xattr -dr com.apple.quarantine /Applications/le-bon-container.app` does what the
+settings button does.
 
-What changes against the container, mostly in the desktop's favour:
+What the desktop install changes against the container, mostly in its favour:
 
 | | Container | Desktop install |
 |---|---|---|
@@ -146,15 +202,13 @@ What changes against the container, mostly in the desktop's favour:
 | How it is talked to | HTTP on `localhost:8788` | HTTP, or standard input with the client starting everything |
 | To install first | Docker | nothing |
 
-The browser opens by itself at startup, on a **profile of its own**, not the one
-you browse with: Chrome refuses to open a debugging port on a profile that is
-already open, and mixing the two would be unpleasant anyway. The first time, go to
-the site in that window, pass the anti robot check, and sign in if you want to. The
-profile remembers it.
+The browser opens on a **profile of its own**, not the one you browse with: Chrome
+refuses to open a debugging port on a profile that is already open, and mixing the
+two would be unpleasant anyway.
 
-To stop it: close the console window on Windows, quit the application on a Mac. The
-browser closes with it, and cleanly, so there is no "restore session" bar on the
-next start.
+To stop it: close the console window on Windows, quit the application on a Mac, or
+close the assistant if it was the one that started it. The browser closes with it,
+and cleanly, so there is no "restore session" bar on the next start.
 
 To build it yourself, with a JDK 21:
 
@@ -234,24 +288,10 @@ install, through no bridge at all: see just below.
 
 ### Over standard input
 
-The path to the program, then `--stdio`. Nothing to launch first: the client
-starts the server when it needs it, and stops it with itself.
-
-**Claude desktop app**, on Windows:
-
-```json
-{ "mcpServers": { "lbc": {
-  "command": "C:\\Users\\YOU\\AppData\\Local\\le-bon-container\\le-bon-container.exe",
-  "args": ["--stdio"] } } }
-```
-
-On a Mac:
-
-```json
-{ "mcpServers": { "lbc": {
-  "command": "/Applications/le-bon-container.app/Contents/MacOS/le-bon-container",
-  "args": ["--stdio"] } } }
-```
+The path to the program, then `--stdio`. Nothing to launch first: the client starts
+the server when it needs it, and stops it with itself. This is what the desktop
+install does, and the configuration for the Claude desktop app is given [right at
+the top](#on-your-own-computer-windows-or-mac).
 
 **Claude Code**:
 

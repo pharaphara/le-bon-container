@@ -15,9 +15,10 @@ vrai navigateur, à travers [MCP](https://modelcontextprotocol.io).
 
 ![build](https://github.com/pharaphara/le-bon-container/actions/workflows/build.yml/badge.svg)
 
-Un conteneur, neuf outils, et des résultats exploitables par un assistant : les
-repères de marché d'abord, un tableau compact ensuite, le détail complet sur le
-disque, et des numéros d'annonces qui ne bougent jamais.
+Une application à installer sur votre machine, ou un conteneur si vous préférez.
+Neuf outils, et des résultats exploitables par un assistant : les repères de marché
+d'abord, un tableau compact ensuite, le détail complet sur le disque, et des
+numéros d'annonces qui ne bougent jamais.
 
 ```
 search "vtt electrique", place 12, price max 1500
@@ -40,22 +41,107 @@ Les catégories et les valeurs de filtres se disent avec les mots du site
 comme le code. Seule la documentation est
 bilingue.
 
-## Démarrage rapide
+## Installation
+
+Deux façons, et la première ne demande rien d'autre que l'application elle-même.
+
+### Sur votre ordinateur, Windows ou Mac
+
+Trois étapes, aucune ligne de commande.
+
+**1. Téléchargez le fichier qui correspond à votre machine.**
+
+| Votre machine | Le fichier |
+|---|---|
+| Windows | [l'installeur `.msi`](https://github.com/pharaphara/le-bon-container/releases/download/edge/le-bon-container-edge-windows-x64.msi) |
+| Mac avec une puce Apple, M1 à M4 | [`le-bon-container-macos-arm64.dmg`](https://github.com/pharaphara/le-bon-container/releases/download/edge/le-bon-container-edge-macos-arm64.dmg) |
+| Mac avec un processeur Intel | [`le-bon-container-macos-x64.dmg`](https://github.com/pharaphara/le-bon-container/releases/download/edge/le-bon-container-edge-macos-x64.dmg) |
+
+Si vous ne savez pas quel Mac vous avez : menu Pomme, « À propos de ce Mac ». Une
+ligne « Puce » veut dire Apple, une ligne « Processeur » veut dire Intel.
+
+Il n'y a rien d'autre à installer avant : ni Docker, ni Java. Comptez une centaine
+de mégaoctets à télécharger, et autant sur le disque.
+
+**2. Ouvrez-le, et passez l'avertissement du système.**
+
+Il y en aura un, et ce n'est pas le signe que quelque chose cloche : ce logiciel
+n'est signé par aucun compte développeur payant, et les deux systèmes traitent cela
+comme n'importe quel programme qu'ils ne connaissent pas.
+
+- **Windows** : double-cliquez sur le `.msi`. Si « Windows a protégé votre
+  ordinateur » apparaît, cliquez « Informations complémentaires », puis « Exécuter
+  quand même ». Aucun mot de passe administrateur n'est demandé : l'installation se
+  fait pour votre compte.
+- **Mac** : ouvrez le `.dmg`, glissez l'application dans Applications, puis
+  lancez-la. macOS refuse au premier essai. Ouvrez alors Réglages Système,
+  Confidentialité et sécurité, descendez tout en bas, et cliquez « Ouvrir quand
+  même ».
+
+**3. Dites à votre assistant où le trouver.**
+
+Cet outil ne se pilote pas tout seul : il met neuf outils à la disposition d'un
+assistant qui sait parler [MCP](https://modelcontextprotocol.io), Claude en
+application de bureau par exemple. Dans la configuration des serveurs MCP de votre
+assistant, ajoutez ceci.
+
+Sur Windows, en remplaçant `VOUS` par votre nom d'utilisateur :
+
+```json
+{ "mcpServers": { "lbc": {
+  "command": "C:\\Users\\VOUS\\AppData\\Local\\le-bon-container\\le-bon-container.exe",
+  "args": ["--stdio"] } } }
+```
+
+Sur Mac :
+
+```json
+{ "mcpServers": { "lbc": {
+  "command": "/Applications/le-bon-container.app/Contents/MacOS/le-bon-container",
+  "args": ["--stdio"] } } }
+```
+
+Redémarrez l'assistant, et vous pouvez lui demander, en français : « cherche des
+VTT électriques à moins de 1 500 € autour de Rodez ». Vous n'avez rien à lancer
+vous-même : c'est l'assistant qui démarre l'outil quand il en a besoin, et qui
+l'arrête avec lui.
+
+**Une chose doit déjà être sur la machine** : Google Chrome, Microsoft Edge ou
+Chromium. L'outil se sert du navigateur que vous avez plutôt que d'en télécharger
+un à lui, et ce n'est pas une économie : [c'est ce qui fait la différence entre
+lire le site et se faire
+arrêter](#comment-le-navigateur-est-démarré-et-pourquoi-ça-compte-plus-que-tout).
+
+### La première fois, un clic qui vous revient
+
+Au démarrage, une fenêtre de navigateur s'ouvre toute seule. Allez sur
+[leboncoin.fr](https://www.leboncoin.fr) dedans, et si le site affiche un contrôle
+« je ne suis pas un robot », passez-le. Connectez-vous à votre compte si vous le
+souhaitez.
+
+C'est la seule chose qu'aucun logiciel ne devrait faire à votre place, et ce projet
+ne la contourne pas : rien ici ne falsifie une empreinte de navigateur, rien
+n'achète la résolution d'un captcha. Un clic, une fois, et le profil s'en souvient
+— y compris après un redémarrage.
+
+Ce n'est pas facultatif, et il vaut la peine de savoir pourquoi. Mesuré sur un
+profil neuf : le site affiche ses pages sans broncher, mais refuse les appels de
+données par un 403 portant un marqueur anti-robot, et au bout de quelques requêtes
+il finit par contrôler la page elle-même. Un profil tout neuf n'a simplement aucune
+validation. Savoir si un compte apporte quelque chose en plus n'a pas été mesuré,
+donc ce document ne l'affirme pas.
+
+### Avec Docker, sur un serveur, un NAS, une machine partagée
 
 ```bash
 docker compose up -d
 ```
 
 Puis on branche son client dessus : voir [brancher un
-client](#brancher-un-client) juste en dessous, pour Claude Code, Claude, ChatGPT
-et Codex.
+client](#brancher-un-client), pour Claude Code, Claude, ChatGPT et Codex.
 
 Rien à compiler et aucun JDK à installer : l'image est construite et publiée par
 l'intégration continue.
-
-**Sous Windows et sur Mac, Docker n'est pas nécessaire.** Il y a un installeur, et
-une version à décompresser : voir [sur Windows ou sur Mac, sans
-Docker](#sur-windows-ou-sur-mac-sans-docker).
 
 La première fois, lancez plutôt `docker compose up` sans `-d` : le conteneur
 affiche un message d'accueil avec les deux adresses et l'état du profil. Ensuite,
@@ -63,94 +149,69 @@ affiche un message d'accueil avec les deux adresses et l'état du profil. Ensuit
 l'intérieur d'un conteneur démarré en arrière-plan, c'est une limite de Docker et
 non un oubli.
 
-**Une fois, au début**, ouvrir <http://localhost:7900>. Vous regardez le navigateur
-du conteneur, et c'est là qu'un humain fait la seule chose qu'aucun outil ne
-devrait faire : passer le contrôle anti-robot, et se connecter au site si vous le
-souhaitez.
+Le clic de tout à l'heure se fait ici à travers une page : ouvrez
+<http://localhost:7900>, vous y regardez le navigateur du conteneur, et vous passez
+le contrôle dedans.
 
-Ce n'est pas facultatif, et il vaut la peine de savoir pourquoi. Mesuré sur un
-conteneur neuf : le site rend ses pages sans broncher, mais refuse les appels de
-données par un 403 portant un marqueur anti-robot, et au bout de quelques requêtes
-il finit par contrôler la page elle-même. Un profil tout neuf n'a simplement aucune
-validation. Passez le contrôle une fois à la main, et le profil s'en souvient.
-Savoir si un compte apporte quelque chose en plus n'a pas été mesuré, donc ce
-document ne l'affirme pas.
+## L'installation sur le poste, en détail
 
-## Sur Windows ou sur Mac, sans Docker
+Ce que l'[installation](#sur-votre-ordinateur-windows-ou-mac) plus haut ne dit pas,
+parce qu'elle n'a pas besoin de le dire pour fonctionner.
 
-Sur la [page des versions](https://github.com/pharaphara/le-bon-container/releases) :
+**Il existe aussi des versions à décompresser**, pour qui préfère ne rien
+installer : `…-windows-x64-portable.zip` contient `le-bon-container.exe`, et les
+`…-macos-*.zip` contiennent la même `.app` que les images disque. Rien n'est écrit
+ailleurs que dans votre dossier de données.
 
-**Windows**
-
-- **`…-windows-x64.msi`** — installe, pose une entrée dans le menu Démarrer, se
-  désinstalle comme n'importe quoi d'autre. Pas besoin d'être administrateur :
-  l'installation se fait pour votre compte.
-- **`…-windows-x64-portable.zip`** — à décompresser où vous voulez, puis lancer
-  `le-bon-container.exe`. Rien n'est installé.
-
-**macOS**
-
-- **`…-macos-arm64.dmg`** pour les Mac Apple Silicon, **`…-macos-x64.dmg`** pour
-  les Mac Intel. À ouvrir, puis glisser dans Applications.
-- Les `.zip` correspondants contiennent la même `.app`, pour qui préfère la poser
-  ailleurs.
-- macOS refuse un numéro de version qui commence par zéro. L'application affiche
-  donc un numéro de plus que le projet — `1.1.x` pour un projet en `0.1.x` — et
-  c'est le nom du fichier qui porte la vraie version.
-
-**Il faut un navigateur sur la machine** : Chrome, Edge ou Chromium. L'outil prend
-celui qui est installé plutôt que d'en télécharger un, et c'est volontaire — voir
-[plus bas](#comment-le-navigateur-est-démarré-et-pourquoi-ça-compte-plus-que-tout).
-S'il n'en trouve aucun, il le dit au démarrage au lieu d'échouer plus tard.
+**macOS refuse un numéro de version qui commence par zéro.** L'application affiche
+donc un numéro de plus que le projet — `1.1.x` pour un projet en `0.1.x` — et c'est
+le nom du fichier qui porte la vraie version.
 
 **Aucun Java à installer** : un runtime taillé aux modules de l'application est
-inclus dans les deux. Mesuré au moment de la construction : 100 Mo pour le msi,
-99 Mo pour le zip, dont 50 Mo de runtime Java et 33 Mo pour le Node que Playwright
-transporte. Environ 120 Mo sur le disque après installation, contre 2,2 Go pour
-l'image Docker, parce que le navigateur et l'écran sont déjà là.
+inclus dans chaque fichier. Mesuré au moment de la construction, côté Windows :
+100 Mo pour le msi, 99 Mo pour le zip, dont 50 Mo de runtime Java et 33 Mo pour le
+Node que Playwright transporte. Les images macOS sont du même ordre, 106 Mo pour
+l'Apple Silicon et 109 Mo pour l'Intel. Environ 120 Mo sur le disque après
+installation, contre 2,2 Go pour l'image Docker, parce que le navigateur et l'écran
+sont déjà là.
 
-**Les mises à jour suivent le même rythme que l'image.** Deux canaux, construits
-et publiés par l'intégration continue :
+**Les mises à jour suivent le même rythme que l'image.** Deux canaux, construits et
+publiés par l'intégration continue :
 
-| | Image Docker | Windows |
+| | Image Docker | Windows et Mac |
 |---|---|---|
 | À chaque changement sur `main` | `ghcr.io/pharaphara/lbc:latest` | la pré-version [`edge`](https://github.com/pharaphara/le-bon-container/releases/tag/edge) |
 | À chaque version publiée | `ghcr.io/pharaphara/lbc:0.1.0` | la release numérotée |
 
-Les deux adresses de l'`edge` ne changent jamais, et servent toujours la dernière
-construction :
+Les adresses de l'`edge` ne changent jamais, et servent toujours la dernière
+construction. Ce sont celles des liens plus haut :
 
 ```
 …/releases/download/edge/le-bon-container-edge-windows-x64.msi
 …/releases/download/edge/le-bon-container-edge-windows-x64-portable.zip
+…/releases/download/edge/le-bon-container-edge-macos-arm64.dmg
+…/releases/download/edge/le-bon-container-edge-macos-x64.dmg
 ```
 
-Chaque construction `edge` porte un numéro de version plus élevé que la
-précédente, et c'est volontaire : Windows décide d'installer ou de ne rien faire
-en comparant les versions, donc deux installeurs qui s'appellent tous les deux
-`0.1.0` sont pour lui le même produit déjà installé. Avec un numéro qui monte, le
-msi s'installe par-dessus le précédent sans rien désinstaller.
+Chaque construction `edge` porte un numéro de version plus élevé que la précédente,
+et c'est volontaire : Windows décide d'installer ou de ne rien faire en comparant
+les versions, donc deux installeurs qui s'appellent tous les deux `0.1.0` sont pour
+lui le même produit déjà installé. Avec un numéro qui monte, l'installeur
+s'installe par-dessus le précédent sans rien désinstaller.
 
-En revanche **rien ne se met à jour tout seul sur votre machine** : c'est un msi à
-relancer, ou un dossier à remplacer. Le profil et les recherches vivent ailleurs,
-sous `%LOCALAPPDATA%`, donc une réinstallation ne touche ni votre session ni vos
-données.
+En revanche **rien ne se met à jour tout seul sur votre machine** : c'est un
+installeur à relancer, ou un dossier à remplacer. Le profil et les recherches
+vivent ailleurs, donc une réinstallation ne touche ni votre session ni vos données.
 
-**Les deux systèmes vont se méfier**, parce que rien n'est signé par un compte
-développeur payant :
+**Sur la méfiance des deux systèmes**, dont les gestes sont donnés plus haut : un
+certificat de signature Windows coûte quelques centaines d'euros par an, et la
+notarisation Apple demande un compte développeur. Ce projet n'a ni l'un ni l'autre,
+et le dire est plus honnête que de faire comme si l'avertissement n'existait pas.
+En ligne de commande sur Mac, `xattr -dr com.apple.quarantine
+/Applications/le-bon-container.app` fait la même chose que le bouton des réglages.
 
-- Windows affiche « Éditeur inconnu » : « Informations complémentaires », puis
-  « Exécuter quand même ».
-- macOS refuse carrément une application téléchargée : Réglages Système,
-  Confidentialité et sécurité, « Ouvrir quand même ». En ligne de commande,
-  `xattr -dr com.apple.quarantine /Applications/le-bon-container.app` fait la même
-  chose.
-
-Un certificat Windows coûte quelques centaines d'euros par an, et la notarisation
-Apple demande un compte développeur. Ce projet n'a ni l'un ni l'autre, et le dire
-est plus honnête que de faire comme si l'avertissement n'existait pas.
-
-Ce que ça change par rapport au conteneur, et c'est plutôt à l'avantage du poste :
+Ce que l'installation sur le poste change par rapport au conteneur, et c'est plutôt
+à son avantage :
 
 | | Conteneur | Installation sur le poste |
 |---|---|---|
@@ -160,15 +221,13 @@ Ce que ça change par rapport au conteneur, et c'est plutôt à l'avantage du po
 | Branchement | HTTP sur `localhost:8788` | HTTP, ou l'entrée standard et le client lance tout |
 | À installer d'abord | Docker | rien |
 
-Le navigateur s'ouvre tout seul au démarrage, sur un **profil à part**, pas celui
-de votre navigation quotidienne : Chrome refuse d'ouvrir un port de débogage sur un
-profil déjà ouvert, et mélanger les deux serait de toute façon désagréable. La
-première fois, allez sur le site dans cette fenêtre, passez le contrôle anti-robot,
-et connectez-vous si vous le souhaitez. Le profil s'en souvient.
+Le navigateur s'ouvre sur un **profil à part**, pas celui de votre navigation
+quotidienne : Chrome refuse d'ouvrir un port de débogage sur un profil déjà ouvert,
+et mélanger les deux serait de toute façon désagréable.
 
 Pour arrêter : fermez la fenêtre de console sous Windows, quittez l'application sur
-Mac. Le navigateur se ferme avec, et proprement, donc pas de bandeau « restaurer la
-session » au démarrage suivant.
+Mac, ou fermez l'assistant si c'est lui qui l'a lancée. Le navigateur se ferme avec,
+et proprement, donc pas de bandeau « restaurer la session » au démarrage suivant.
 
 Pour construire soi-même, avec un JDK 21 :
 
@@ -252,23 +311,10 @@ avec l'installation sur le poste, sans passerelle du tout : voir juste en dessou
 ### Sur l'entrée standard
 
 Le chemin du programme, suivi de `--stdio`. Rien à lancer d'avance : le client
-démarre le serveur quand il en a besoin, et l'arrête en même temps que lui.
-
-**Claude, application de bureau**, sous Windows :
-
-```json
-{ "mcpServers": { "lbc": {
-  "command": "C:\\Users\\VOUS\\AppData\\Local\\le-bon-container\\le-bon-container.exe",
-  "args": ["--stdio"] } } }
-```
-
-Sur Mac :
-
-```json
-{ "mcpServers": { "lbc": {
-  "command": "/Applications/le-bon-container.app/Contents/MacOS/le-bon-container",
-  "args": ["--stdio"] } } }
-```
+démarre le serveur quand il en a besoin, et l'arrête en même temps que lui. C'est
+ce que fait l'installation sur le poste, et la configuration pour Claude en
+application de bureau est donnée [tout en
+haut](#sur-votre-ordinateur-windows-ou-mac).
 
 **Claude Code** :
 
