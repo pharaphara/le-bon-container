@@ -49,6 +49,32 @@ jobs:
           else {
               ./package/windows/package.ps1
           }
+      # The runner is a Windows machine with a screen and a Chrome, which is the
+      # only place this half can be tested at all: everything else in the repo is
+      # tested with no browser and no network.
+      - name: install it and run it
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem target/windows/*.msi -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if ($msi) {
+              Start-Process msiexec -Wait -ArgumentList '/i', "`"$($msi.FullName)`"", '/qn'
+              $exe = "$env:LOCALAPPDATA\le-bon-container\le-bon-container.exe"
+          }
+          else {
+              # No WiX, no msi: the portable zip is the same application.
+              $zip = Get-ChildItem target/windows/*portable.zip | Select-Object -First 1
+              Expand-Archive $zip.FullName -DestinationPath portable -Force
+              $exe = (Get-ChildItem portable -Recurse -Filter le-bon-container.exe |
+                Select-Object -First 1).FullName
+          }
+          ./package/windows/smoke.ps1 -Exe $exe -WorkDir "$env:GITHUB_WORKSPACE\smoke"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-windows-x64
+          path: smoke
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: le-bon-container-windows-x64
@@ -86,6 +112,22 @@ jobs:
           else
             ./package/macos/package.sh
           fi
+      - name: install it and run it
+        env:
+          LBC_SMOKE_DIR: ${{ github.workspace }}/smoke
+        run: |
+          dmg=$(ls target/macos/*.dmg | head -1)
+          hdiutil attach "$dmg" -nobrowse -quiet -mountpoint /Volumes/lbc
+          sudo cp -R /Volumes/lbc/le-bon-container.app /Applications/
+          hdiutil detach /Volumes/lbc -quiet
+          ./package/macos/smoke.sh \
+            /Applications/le-bon-container.app/Contents/MacOS/le-bon-container
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-macos-${{ matrix.arch }}
+          path: smoke
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: le-bon-container-macos-${{ matrix.arch }}
