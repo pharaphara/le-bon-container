@@ -28,6 +28,13 @@ PROFILE="$HOME/Library/Application Support/le-bon-container/profile"
 FAILURES=0
 
 say() { echo "  $1"; }
+# What Chromium wrote about the way it last closed. Normal or SessionEnded when it
+# was asked and went; Crashed when it was killed, or when it never got to say.
+exit_type() {
+    local prefs="$PROFILE/Default/Preferences"
+    [ -f "$prefs" ] || { echo "no profile"; return; }
+    grep -o '"exit_type":"[^"]*"' "$prefs" | head -1 | cut -d'"' -f4
+}
 fail() { echo "  FAIL $1"; FAILURES=$((FAILURES + 1)); }
 # Only the browsers on our own profile: a machine is allowed to have other Chrome
 # windows open, and counting those would fail a test about this application.
@@ -101,12 +108,15 @@ else
         say "no screenshot: screencapture found no session to photograph"
     fi
 fi
-# A term signal here does run the shutdown hooks, but leaving cleanly is checked
-# on the stdio side, where a client closing its end is the real case.
+# A term signal here does run the shutdown hooks, but this half still ends by
+# killing whatever is left, so the profile it leaves says nothing. It goes with it,
+# and the stdio half then measures its own leaving rather than this one's.
 kill -TERM "$APP" 2>/dev/null
 sleep 6
 pkill -f -- "user-data-dir=$PROFILE" 2>/dev/null
 sleep 2
+say "profile after this half: '$(exit_type)'"
+rm -rf "$PROFILE"
 
 # ----------------------------------------------------------------- stdio
 echo
@@ -147,6 +157,9 @@ grep -q '"id":1' "$WORK/stdio.out" && grep -q '"tools"' "$WORK/stdio.out" \
 grep -q "le bon container" "$WORK/stdio.err" \
     && say "banner on standard error, where it belongs" \
     || fail "no banner on standard error"
+# Which browser it drove, in its own words, because every claim below depends on
+# one having been started at all.
+grep "Driving" "$WORK/stdio.err" | sed 's/^ */  /' || true
 
 WAITED=$(wait_for_browsers_to_go 20)
 LEFT=$(browsers)
@@ -157,15 +170,12 @@ else
     pkill -f -- "user-data-dir=$PROFILE" 2>/dev/null
 fi
 
-PREFS="$PROFILE/Default/Preferences"
-if [ -f "$PREFS" ]; then
-    EXIT_TYPE=$(grep -o '"exit_type":"[^"]*"' "$PREFS" | head -1 | cut -d'"' -f4)
-    if [ "$EXIT_TYPE" = "Crashed" ]; then
-        fail "the profile is marked Crashed, so the next window offers to restore"
-    else
-        say "profile closed as '${EXIT_TYPE:-unset}'"
-    fi
-fi
+EXIT_TYPE=$(exit_type)
+case "$EXIT_TYPE" in
+    Crashed) fail "the profile is marked Crashed, so the next window offers to restore" ;;
+    "no profile") fail "no profile was written, so no browser ran in this half" ;;
+    *) say "profile closed as '${EXIT_TYPE:-unset}'" ;;
+esac
 
 # ----------------------------------------------------------------- verdict
 echo

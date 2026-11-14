@@ -53,6 +53,15 @@ function Browsers {
         Where-Object { $_.CommandLine -and $_.CommandLine.Contains($profileDir) })
 }
 
+# What Chromium wrote about the way it last closed. Normal or SessionEnded when it
+# was asked and went; Crashed when it was killed, or when it never got to say.
+function ExitType {
+    $prefs = Join-Path $profileDir "Default\Preferences"
+    if (-not (Test-Path $prefs)) { return "no profile" }
+    try { return (Get-Content $prefs -Raw | ConvertFrom-Json).profile.exit_type }
+    catch { return "unreadable" }
+}
+
 function KillBrowsers {
     @(Browsers) | ForEach-Object {
         Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
@@ -153,12 +162,17 @@ else {
         Fail "the http side threw: $($_.Exception.Message)"
     }
 }
-# Stop-Process is a terminate, not a request, so nothing is concluded from what
-# the browser does here. The stdio half is where leaving cleanly is checked.
+# Stop-Process is a terminate, not a request: on Windows it runs no shutdown hook,
+# so this half ends by killing a browser mid sentence and the profile it leaves
+# behind is marked Crashed by definition. Nothing is concluded from that, and the
+# profile goes with it, so that the stdio half measures its own leaving rather than
+# this one's.
 Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 3
 KillBrowsers
 Start-Sleep -Seconds 2
+Say "profile after a kill: '$(ExitType)', as expected of one"
+Remove-Item $profileDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # ----------------------------------------------------------------- stdio
 Write-Host "`nstdio"
@@ -203,17 +217,26 @@ if ($out -match '"id":1' -and $out -match '"tools"') { Say "initialize and tools
 else { Fail "initialize or tools/list went unanswered" }
 if ($err -match "le bon container") { Say "banner on standard error, where it belongs" }
 else { Fail "no banner on standard error" }
+# Which browser it drove, in its own words, because every claim below depends on
+# one having been started at all.
+foreach ($line in @($err -split "`r?`n" | Where-Object { $_ -match "Driving" })) {
+    Say $line.Trim()
+}
 
 $waited = WaitForBrowsersToGo 20
 $left = @(Browsers)
 if ($left.Count -eq 0) { Say "no browser left behind, gone within $waited s" }
 else { Fail "$($left.Count) browser processes outlived the server"; KillBrowsers }
 
-$prefs = Join-Path $profileDir "Default\Preferences"
-if (Test-Path $prefs) {
-    $exit = (Get-Content $prefs -Raw | ConvertFrom-Json).profile.exit_type
-    if ($exit -eq "Crashed") { Fail "the profile is marked Crashed, so the next window offers to restore" }
-    else { Say "profile closed as '$exit'" }
+$exit = ExitType
+if ($exit -eq "Crashed") {
+    Fail "the profile is marked Crashed, so the next window offers to restore"
+}
+elseif ($exit -eq "no profile") {
+    Fail "no profile was written, so no browser ran in this half"
+}
+else {
+    Say "profile closed as '$exit'"
 }
 
 # ----------------------------------------------------------------- verdict
