@@ -581,6 +581,12 @@ pwsh package/windows/package.ps1   # the msi and the zip, on Windows, after mvn 
 Run by hand, the server picks up the machine's own browser and writes under your
 data directory: no container needed for everyday development.
 
+CI does not only build: it installs the msi, mounts the disk image, starts the
+container, and then asks all three installed applications the questions that
+matter — does the browser announce being driven, is there anything but protocol on
+standard output, does a browser outlive the server. Each machine leaves a
+screenshot of what was on its screen, attached to the build.
+
 Playwright ships its own Node runtime for five platforms, which is how it
 guarantees the version it needs. The image keeps the one it runs and drops the
 other four, saving 155 MB; the Windows install does the same sort and goes from

@@ -163,13 +163,6 @@ jobs:
           pattern: le-bon-container-*
           merge-multiple: true
           path: dist
-      # The screenshots travel with the build that took them, which is also the
-      # only way back to a machine that has no runner of its own.
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: screens-*
-          merge-multiple: true
-          path: dist
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

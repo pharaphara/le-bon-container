@@ -615,6 +615,12 @@ pwsh package/windows/package.ps1   # le msi et le zip, sur Windows, après un mv
 Lancé à la main, le serveur prend le navigateur de la machine et écrit sous votre
 dossier de données : pas besoin de conteneur pour le développement courant.
 
+L'intégration continue ne fait pas que construire : elle installe le msi, monte
+l'image disque, démarre le conteneur, et interroge les trois applications ainsi
+installées — le navigateur annonce-t-il être piloté, la sortie standard ne porte-t-elle
+que du protocole, un navigateur survit-il au serveur. Chaque machine dépose au
+passage une capture de ce qu'elle avait à l'écran, jointe au build.
+
 Playwright embarque son propre Node pour cinq plateformes, et c'est ainsi qu'il
 garantit la version dont il a besoin. L'image garde celle qu'elle exécute et jette
 les quatre autres, soit 155 Mo ; l'installation Windows fait le même tri et passe
