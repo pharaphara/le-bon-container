@@ -83,6 +83,9 @@ On the [releases page](https://github.com/pharaphara/le-bon-container/releases):
 - **`…-macos-arm64.dmg`** for Apple silicon, **`…-macos-x64.dmg`** for Intel.
   Open it, drag it into Applications.
 - The matching `.zip` files hold the same `.app`, for putting it somewhere else.
+- macOS refuses a version number that starts with zero, so the application shows
+  one more than the project does — `1.1.x` for a project in `0.1.x` — and the file
+  name carries the real one.
 
 **A browser has to be on the machine**: Chrome, Edge or Chromium. The tool uses the
 one that is installed rather than downloading its own, on purpose — see

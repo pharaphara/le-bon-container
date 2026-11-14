@@ -94,6 +94,9 @@ Sur la [page des versions](https://github.com/pharaphara/le-bon-container/releas
   les Mac Intel. À ouvrir, puis glisser dans Applications.
 - Les `.zip` correspondants contiennent la même `.app`, pour qui préfère la poser
   ailleurs.
+- macOS refuse un numéro de version qui commence par zéro. L'application affiche
+  donc un numéro de plus que le projet — `1.1.x` pour un projet en `0.1.x` — et
+  c'est le nom du fichier qui porte la vraie version.
 
 **Il faut un navigateur sur la machine** : Chrome, Edge ou Chromium. L'outil prend
 celui qui est installé plutôt que d'en télécharger un, et c'est volontaire — voir

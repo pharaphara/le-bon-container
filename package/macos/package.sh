@@ -61,8 +61,16 @@ VERSION=$(basename "$JAR" | sed -n 's/^lbc-\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p')
 [ -z "$BUILD" ] || VERSION=$(echo "$VERSION" | sed "s/\.[0-9]*$/.$BUILD/")
 LABEL="${SUFFIX:-$VERSION}"
 
+# macOS refuses a version whose first number is zero, and this project is still in
+# 0.x. So the bundle carries one more than the project does, which keeps the order
+# intact rather than inventing a number: 0.1.8 becomes 1.1.8, and the day the
+# project reaches 1.0.0 the bundle becomes 2.0.0, still ahead of it. The file name
+# keeps the real version, because that is the one a person would quote.
+MAJOR=$(echo "$VERSION" | cut -d. -f1)
+APP_VERSION="$((MAJOR + 1)).$(echo "$VERSION" | cut -d. -f2-)"
+
 echo "jar       $JAR"
-echo "version   $VERSION"
+echo "version   $VERSION, as $APP_VERSION in the bundle"
 echo "arch      $ARCH, keeping $KEEP"
 
 rm -rf "$OUT"
@@ -103,7 +111,7 @@ fi
 # ---------------------------------------------------------------- jpackage
 common=(
     --name "$NAME"
-    --app-version "$VERSION"
+    --app-version "$APP_VERSION"
     --vendor "$VENDOR"
     --description "Browse leboncoin.fr with an AI, through a real browser, over MCP"
     --copyright "pharaphara, MIT"
