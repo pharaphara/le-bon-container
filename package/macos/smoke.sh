@@ -29,7 +29,19 @@ FAILURES=0
 
 say() { echo "  $1"; }
 fail() { echo "  FAIL $1"; FAILURES=$((FAILURES + 1)); }
-browsers() { pgrep -f "remote-debugging-port=" 2>/dev/null | wc -l | tr -d ' '; }
+# Only the browsers on our own profile: a machine is allowed to have other Chrome
+# windows open, and counting those would fail a test about this application.
+browsers() { pgrep -f -- "user-data-dir=$PROFILE" 2>/dev/null | wc -l | tr -d ' '; }
+
+# A browser that was asked to close takes a moment to finish: it has preferences
+# to write, and whether it wrote them is one of the things being checked.
+wait_for_browsers_to_go() {
+    for t in $(seq 1 "$1"); do
+        [ "$(browsers)" -eq 0 ] && { echo "$t"; return; }
+        sleep 1
+    done
+    echo "$1"
+}
 
 [ -x "$EXE" ] || { echo "not installed: $EXE" >&2; exit 1; }
 rm -rf "$WORK"; mkdir -p "$WORK"
@@ -83,7 +95,7 @@ fi
 # on the stdio side, where a client closing its end is the real case.
 kill -TERM "$APP" 2>/dev/null
 sleep 6
-pkill -f "remote-debugging-port=" 2>/dev/null
+pkill -f -- "user-data-dir=$PROFILE" 2>/dev/null
 sleep 2
 
 # ----------------------------------------------------------------- stdio
@@ -126,12 +138,13 @@ grep -q "le bon container" "$WORK/stdio.err" \
     && say "banner on standard error, where it belongs" \
     || fail "no banner on standard error"
 
+WAITED=$(wait_for_browsers_to_go 20)
 LEFT=$(browsers)
 if [ "$LEFT" -eq 0 ]; then
-    say "no browser left behind"
+    say "no browser left behind, gone within $WAITED s"
 else
     fail "$LEFT browser processes outlived the server"
-    pkill -f "remote-debugging-port=" 2>/dev/null
+    pkill -f -- "user-data-dir=$PROFILE" 2>/dev/null
 fi
 
 PREFS="$PROFILE/Default/Preferences"

@@ -274,6 +274,9 @@ public class Browser implements AutoCloseable {
             if (attached != null) {
                 if (chrome.ours()) {
                     attached.close();
+                    // Said out loud, because it decides whether the launcher waits
+                    // for the browser to finish leaving or terminates it.
+                    chrome.closingItself();
                 }
                 attached = null;
             } else if (context != null) {

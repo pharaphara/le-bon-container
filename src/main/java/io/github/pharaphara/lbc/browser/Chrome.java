@@ -43,6 +43,9 @@ public class Chrome implements AutoCloseable {
     private static final int PREFERRED_PORT = 9222;
 
     private static final long READY_MS = 30_000;
+
+    /** How long a browser that was asked to close gets to finish doing it. */
+    private static final long CLOSE_MS = 15_000;
     private static final long STEP_MS = 250;
 
     private final LbcProperties props;
@@ -50,6 +53,7 @@ public class Chrome implements AutoCloseable {
     private Process process;
     private Path exe;
     private String cdpUrl;
+    private boolean asked;
 
     public Chrome(LbcProperties props) {
         this.props = props;
@@ -111,6 +115,16 @@ public class Chrome implements AutoCloseable {
     /** True when the browser is ours to close, rather than one we found running. */
     public synchronized boolean ours() {
         return process != null && process.isAlive();
+    }
+
+    /**
+     * Say that the browser has been asked, over the protocol, to close itself.
+     *
+     * <p>Which changes what {@link #close()} is allowed to do: wait, rather than
+     * terminate something that is already on its way out.
+     */
+    public synchronized void closingItself() {
+        this.asked = true;
     }
 
     public synchronized Path executable() {
@@ -314,27 +328,44 @@ public class Chrome implements AutoCloseable {
      * Stop the browser we started, and only that one.
      *
      * <p>Terminating Chromium leaves the profile marked as having crashed, and the
-     * next window opens with a bar asking to restore it. So this is the fallback:
-     * the clean way out is {@link Browser#close()}, which asks the browser to close
-     * itself over the protocol, and that only happens for a browser that is ours.
+     * next window opens with a bar asking to restore it. The clean way out is
+     * {@link Browser#close()}, which asks the browser over the protocol to close
+     * itself; when that has happened, all this has to do is wait.
+     *
+     * <p>Waiting is not politeness, and it is the whole of a bug that only showed
+     * on Windows. Process.destroy sends a term signal on Unix, which Chromium
+     * handles by shutting down properly, and calls TerminateProcess on Windows,
+     * which it cannot handle at all. So a browser that had just been asked to leave
+     * was being killed halfway through writing its own preferences: the profile
+     * stayed marked Crashed, and a child process outlived the server. Measured on a
+     * Windows runner, where macOS and Linux had been passing all along.
      */
     @Override
     @PreDestroy
     public synchronized void close() {
         if (process == null) {
             cdpUrl = null;
+            asked = false;
             return;
         }
-        process.descendants().forEach(ProcessHandle::destroy);
-        process.destroy();
         try {
-            if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
-                process.destroyForcibly();
+            if (asked) {
+                process.waitFor(CLOSE_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
+            }
+            if (process.isAlive()) {
+                // Nobody asked it, or it did not go: the blunt way, for a browser
+                // that would otherwise outlive the thing that started it.
+                process.descendants().forEach(ProcessHandle::destroy);
+                process.destroy();
+                if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                }
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
         process = null;
         cdpUrl = null;
+        asked = false;
     }
 }

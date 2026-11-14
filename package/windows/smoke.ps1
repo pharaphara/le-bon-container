@@ -41,10 +41,33 @@ $failures = @()
 
 function Say($what) { Write-Host "  $what" }
 function Fail($what) { $script:failures += $what; Write-Host "  FAIL $what" }
-# Wrapped at every call site as well as here: a function returning an empty array
-# in PowerShell returns nothing at all, and nothing has no Count, which under
-# StrictMode is an error rather than a zero.
-function Browsers { @(Get-Process chrome, msedge -ErrorAction SilentlyContinue) }
+# Only the browsers on our own profile: a machine is allowed to have other Chrome
+# windows open, and counting those would fail a test about this application.
+#
+# Wrapped at every call site as well as here, because a function returning an
+# empty array in PowerShell returns nothing at all, and nothing has no Count,
+# which under StrictMode is an error rather than a zero.
+function Browsers {
+    @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue `
+            -Filter "Name='chrome.exe' OR Name='msedge.exe'" |
+        Where-Object { $_.CommandLine -and $_.CommandLine.Contains($profileDir) })
+}
+
+function KillBrowsers {
+    @(Browsers) | ForEach-Object {
+        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# A browser that was asked to close takes a moment to finish: it has preferences
+# to write, and whether it wrote them is one of the things being checked.
+function WaitForBrowsersToGo($seconds) {
+    foreach ($t in 1..$seconds) {
+        if (@(Browsers).Count -eq 0) { return $t }
+        Start-Sleep -Seconds 1
+    }
+    return $seconds
+}
 
 if (-not (Test-Path $Exe)) { throw "not installed: $Exe" }
 New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null
@@ -116,7 +139,7 @@ else {
 # the browser does here. The stdio half is where leaving cleanly is checked.
 Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 3
-Browsers | Stop-Process -Force -ErrorAction SilentlyContinue
+KillBrowsers
 Start-Sleep -Seconds 2
 
 # ----------------------------------------------------------------- stdio
@@ -163,9 +186,10 @@ else { Fail "initialize or tools/list went unanswered" }
 if ($err -match "le bon container") { Say "banner on standard error, where it belongs" }
 else { Fail "no banner on standard error" }
 
+$waited = WaitForBrowsersToGo 20
 $left = @(Browsers)
-if ($left.Count -eq 0) { Say "no browser left behind" }
-else { Fail "$($left.Count) browser processes outlived the server"; $left | Stop-Process -Force }
+if ($left.Count -eq 0) { Say "no browser left behind, gone within $waited s" }
+else { Fail "$($left.Count) browser processes outlived the server"; KillBrowsers }
 
 $prefs = Join-Path $profileDir "Default\Preferences"
 if (Test-Path $prefs) {
